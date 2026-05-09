@@ -33,20 +33,35 @@ import pandas as pd
 
 
 PRESETS = {
-    "mini_v010": {
-        "N": 150,
+    "smoke_v010": {
+        "N": 80,
         "d": 4,
-        "steps": 60,
-        "seeds": 5,
+        "steps": 25,
+        "seeds": 2,
+        "baseline_count": 10,
+        "alpha": 0.5,
+        "threshold": 0.75,
+        "mutation_rate": 0.10,
+        "model_modes": ["compensated", "uncompensated"],
+        "relation_variants": [0, 2, 4],
+        "betas": [0.0, 0.05],
+        "epsilon_norms": [0.0],
+        "lambda_values": [0.0, 0.01],
+    },
+    "mini_v010": {
+        "N": 100,
+        "d": 4,
+        "steps": 50,
+        "seeds": 3,
         "baseline_count": 20,
         "alpha": 0.5,
         "threshold": 0.75,
         "mutation_rate": 0.10,
         "model_modes": ["compensated", "uncompensated", "residual"],
-        "relation_variants": [0, 1, 2, 3, 4],
-        "betas": [0.0, 0.05, 0.5],
-        "epsilon_norms": [0.0, 1e-2, 1e-1],
-        "lambda_values": [0.0, 0.001, 0.01, 0.05],
+        "relation_variants": [0, 2, 3, 4],
+        "betas": [0.0, 0.05],
+        "epsilon_norms": [0.0, 1e-2],
+        "lambda_values": [0.0, 0.01],
     },
     "local_v010": {
         "N": 150,
@@ -166,16 +181,13 @@ class Simulator:
             return float(np.exp(-self.alpha * dist_sq))
 
         if self.relation_variant == 1:
-            # Global gate: changes graph density, not pair ordering.
             return float(np.exp(-self.alpha * dist_sq) * np.exp(-self.beta * float(np.sum(K**2))))
 
         if self.relation_variant == 2:
-            # Compensation alignment: pair-specific sensitivity to global residual.
             alignment = abs(float(np.dot(vi + vj, K)))
             return float(np.exp(-self.alpha * dist_sq - self.beta * alignment))
 
         if self.relation_variant == 3:
-            # Local pair compensation.
             pair_residual_sq = float(np.sum((vi + vj) ** 2))
             return float(np.exp(-self.alpha * dist_sq - self.beta * pair_residual_sq))
 
@@ -473,7 +485,7 @@ def make_comparison(summary: pd.DataFrame) -> pd.DataFrame:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=list(PRESETS.keys()), default="mini_v010")
+    parser.add_argument("--mode", choices=list(PRESETS.keys()), default="smoke_v010")
     parser.add_argument("--out-prefix", default="v010")
     args = parser.parse_args()
 
