@@ -42,11 +42,11 @@ PRESETS = {
     "fast": {
         "N": 100,
         "d": 4,
-        "steps": 50,
-        "seeds": 5,
-        "baseline_count": 20,
+        "steps": 200,
+        "seeds": 100,
+        "baseline_count": 100,
         "mutation_rate": 0.10,
-        "params": [(0.5, 0.75), (1.0, 0.60)],
+        "params": [(0.5, 0.75)],
     },
     "local": {
         "N": 100,
