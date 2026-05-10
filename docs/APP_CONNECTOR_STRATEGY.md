@@ -23,6 +23,7 @@ Qwen review
 ChatGPT / Delta-D0
 future skills
 future calendar / planning layer
+future MCP/app layer
 ```
 
 External apps can improve memory, coordination, review, publication, and recovery.
@@ -553,7 +554,62 @@ Use only after workflow is stable manually.
 
 ---
 
-### 4.7 Invideo
+### 4.7 MCP / app development layer
+
+Current status:
+
+```text
+future controlled app/action layer;
+not current GCMS-D0 baseline;
+not required for reproducibility.
+```
+
+MCP and app connectors may become useful for projects generally and for GCMS-D0 specifically if they provide a reliable way to expose project actions to AI agents.
+
+Possible future use:
+
+```text
+controlled GitHub issue creation;
+review packet generation;
+Google Drive / Sheets publishing;
+experiment dashboard updates;
+agent-task routing;
+safe execution wrappers;
+status collection from external tools;
+repeatable project workflows across multiple projects.
+```
+
+Why it is not baseline now:
+
+```text
+availability may depend on plan/account type;
+write actions create safety risk;
+remote app state may be hard to reproduce;
+local computer control is not the same as scientific reproducibility;
+manual markdown/Python workflow is not yet fully stabilized.
+```
+
+Policy:
+
+```text
+MCP is a future development layer, not a current source of truth.
+Prefer read/fetch actions before write actions.
+Require explicit confirmation for write/modify actions.
+Never allow MCP/app actions to change success criteria or reinterpret results.
+Do not depend on paid or non-repeatable MCP features for the scientific baseline.
+```
+
+Development rule:
+
+```text
+First make the workflow stable manually.
+Then formalize it as tools/skills.
+Only then consider MCP/app integration.
+```
+
+---
+
+### 4.8 Invideo
 
 Current status:
 
@@ -633,7 +689,8 @@ paid project-management apps;
 CRM;
 support tools;
 calendar automation;
-API automation.
+API automation;
+MCP/app write actions.
 ```
 
 ### Stage 2 — after confirm_connectivity_variant2
@@ -676,7 +733,8 @@ Add only after manual process is stable:
 OpenAI Platform API;
 custom agents;
 formal skills;
-workflow automation.
+workflow automation;
+MCP/app layer if it is useful, safe, and repeatable enough.
 ```
 
 ---
@@ -735,7 +793,7 @@ presentation -> Google Slides
 meeting/deadline -> Calendar
 execution -> VS Code / CLI / Codex
 review -> Qwen
-workflow automation -> skills / OpenAI Platform later
+workflow automation -> skills / OpenAI Platform / MCP later
 ```
 
 ### Rule 2 — do not hide canonical information in apps
@@ -757,6 +815,17 @@ Methodological continuity remains with Delta-D0.
 ### Rule 5 — local fallback required
 
 Every app-based workflow should have a local/manual fallback.
+
+### Rule 6 — MCP/write actions require explicit confirmation
+
+MCP or app write actions must be treated like Codex terminal commands:
+
+```text
+ask what action will be performed;
+state what artifact will be changed;
+confirm allowed/forbidden scope;
+record important changes back into GitHub.
+```
 
 ---
 
@@ -784,6 +853,12 @@ Delta-D0 coordinates.
 Aleksey resolves.
 ```
 
+Future extension:
+
+```text
+MCP/app layer may route controlled actions after workflows are stable.
+```
+
 ---
 
 ## 10. Current status
@@ -795,6 +870,7 @@ VS Code/Codex: active for local execution and validation.
 Qwen: active external AI reviewer.
 Skills: planned, first auditor prototype exists as a tool.
 Calendar/network planning: not yet active; recommended first as markdown roadmap or GitHub Issues.
+MCP/app layer: future development layer, not current baseline.
 CRM/support apps: future business layer, not current GCMS-D0 core.
 OpenAI Platform: future automation/API layer, not current manual science loop.
 ```
