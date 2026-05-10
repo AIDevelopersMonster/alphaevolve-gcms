@@ -181,7 +181,7 @@ docs/PROJECT_INVENTORY.md          -> project map
 docs/results/                      -> interpreted experiment results
 docs/validation/                   -> validation notes
 docs/GCMS-D0_*.md                  -> protocol, checkpoint, recovery docs
-docs/AI_INTERACTION_SKILL_*.md     -> human-AI skill development
+docs/skills/                       -> human-AI skill documentation
 docs/AGENT_INTERACTION_PROTOCOL.md -> this protocol
 experiments/                       -> simulation code
 tools/                             -> analysis utilities
@@ -193,7 +193,88 @@ GitHub is not only storage. It is the continuity substrate for the research cont
 
 ---
 
-## 4. Standard agent-task lifecycle
+## 4. Anti-vibe-coding separation rule
+
+GCMS-D0 must not collapse into vibe coding, ad hoc prompting, or amateur tool use.
+
+Every meaningful action should preserve five separations:
+
+```text
+1. What are we doing?
+2. Why are we doing it?
+3. How are we doing it?
+4. With what tools are we doing it?
+5. How do we verify it, and which document establishes the rule?
+```
+
+Short form:
+
+```text
+what / why / how / with what / how verified / where documented
+```
+
+Before changing code, running agents, creating skills, flashing devices, or interpreting results, Delta-D0 should ask whether these separations are clear.
+
+If they are not clear, the next step must be documentation or clarification, not execution.
+
+### 4.1 Required action frame
+
+For non-trivial work, use this frame:
+
+```text
+Task:
+Purpose:
+Method:
+Tool/agent:
+Allowed actions:
+Forbidden actions:
+Verification:
+Document basis:
+Expected artifact:
+```
+
+### 4.2 Example
+
+Bad form:
+
+```text
+Let Codex improve the project.
+```
+
+Good form:
+
+```text
+Task: run lite audit on a specified raw CSV.
+Purpose: recompute stable success rates and effect-vs-beta.
+Method: execute tools/audit_gcms_lite.py with explicit input/output prefix.
+Tool/agent: Codex in VS Code or CLI.
+Allowed actions: read CSV, write outputs/*_lite_*.csv/png/md.
+Forbidden actions: edit experiment code, commit generated outputs, change criteria.
+Verification: compare effect table with expected beta-grid values.
+Document basis: skills/proposals/gcms-result-auditor/LITE_TEST_PLAN.md.
+Expected artifact: local audit report and effect table.
+```
+
+### 4.3 Responsibility
+
+Aleksey can authorize action.
+
+Delta-D0 must preserve the separation between:
+
+```text
+- idea and implementation;
+- experiment and interpretation;
+- tool and method;
+- agent action and human resolution;
+- result and claim;
+- prototype and established protocol.
+```
+
+This separation is part of the scientific method and the team-management method.
+
+---
+
+## 5. Standard agent-task lifecycle
 
 Any non-trivial agent task should follow this lifecycle:
 
@@ -210,9 +291,9 @@ Any non-trivial agent task should follow this lifecycle:
 
 ---
 
-## 5. Default task templates
+## 6. Default task templates
 
-### 5.1 Codex inspect-only task
+### 6.1 Codex inspect-only task
 
 ```text
 Inspect the repository state.
@@ -226,7 +307,7 @@ Report:
 5. recommended next action
 ```
 
-### 5.2 Codex validation task
+### 6.2 Codex validation task
 
 ```text
 Run validation for the specified script or mode.
@@ -240,7 +321,7 @@ Report:
 5. git status after run
 ```
 
-### 5.3 Codex edit task
+### 6.3 Codex edit task
 
 ```text
 Make only the requested edit.
@@ -252,7 +333,7 @@ After editing:
 3. do not commit unless explicitly asked.
 ```
 
-### 5.4 Qwen review task
+### 6.4 Qwen review task
 
 ```text
 Review this result as a skeptical methodological reviewer.
@@ -272,7 +353,7 @@ Return:
 - suggested conservative wording.
 ```
 
-### 5.5 Gemini generation task
+### 6.5 Gemini generation task
 
 ```text
 Generate candidate variants or implementation ideas.
@@ -283,7 +364,7 @@ Return alternatives with risks and expected confounds.
 
 ---
 
-## 6. Reporting standard
+## 7. Reporting standard
 
 Every agent report should include:
 
@@ -309,7 +390,7 @@ whether generated outputs were touched
 
 ---
 
-## 7. Commit and PR rules
+## 8. Commit and PR rules
 
 Default rule:
 
@@ -333,7 +414,7 @@ For GitHub edits made directly by Delta-D0:
 
 ---
 
-## 8. Skills integration
+## 9. Skills integration
 
 Skills should be introduced gradually.
 
@@ -371,9 +452,9 @@ read SKILL.md -> inspect scripts -> test on toy data -> only then use in project
 
 ---
 
-## 9. Failure modes
+## 10. Failure modes
 
-### 9.1 Agent overreach
+### 10.1 Agent overreach
 
 Risk:
 
@@ -387,7 +468,24 @@ Prevention:
 Use narrow task prompts and explicit forbidden actions.
 ```
 
-### 9.2 Documentation drift
+### 10.2 Vibe coding / method collapse
+
+Risk:
+
+```text
+The project starts acting on attractive prompts, tool availability, or agent suggestions
+without separating task, method, tool, verification, and document basis.
+```
+
+Prevention:
+
+```text
+Use the anti-vibe-coding separation rule before execution.
+Require action frames for non-trivial tasks.
+Document rules before scaling workflows.
+```
+
+### 10.3 Documentation drift
 
 Risk:
 
@@ -401,7 +499,7 @@ Prevention:
 Update docs/PROJECT_INVENTORY.md after major project changes.
 ```
 
-### 9.3 Generated-output pollution
+### 10.4 Generated-output pollution
 
 Risk:
 
@@ -415,7 +513,7 @@ Prevention:
 Check git ls-files -- "*.csv" before commit.
 ```
 
-### 9.4 Scientific overclaiming
+### 10.5 Scientific overclaiming
 
 Risk:
 
@@ -429,7 +527,7 @@ Prevention:
 Qwen review + conservative wording + explicit limitations.
 ```
 
-### 9.5 False continuity
+### 10.6 False continuity
 
 Risk:
 
@@ -445,7 +543,7 @@ Recovery quiz + role/success criteria checks.
 
 ---
 
-## 10. Current practical workflow
+## 11. Current practical workflow
 
 For the current GCMS-D0 stage:
 
@@ -460,7 +558,7 @@ For the current GCMS-D0 stage:
 
 ---
 
-## 11. Core principle
+## 12. Core principle
 
 The human-AI-agent system should maximize capability without losing governance.
 
