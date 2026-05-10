@@ -20,7 +20,7 @@ GitHub
 Google Drive / Docs / Sheets / Slides
 VS Code / Codex
 Qwen review
-ChatGPT / Delta-D0
+ChatGPT Business sandbox / Delta-D0
 future skills
 future calendar / planning layer
 future MCP/app layer
@@ -257,12 +257,14 @@ docs/reviews/
 
 ---
 
-### 3.5 ChatGPT / Delta-D0
+### 3.5 ChatGPT Business sandbox / Delta-D0
 
 Current status:
 
 ```text
-active methodological/recovery role
+active methodological/recovery role;
+operationally hosted in a ChatGPT Business sandbox;
+renewed/maintained by Aleksey as a practical working environment.
 ```
 
 Used for:
@@ -274,13 +276,30 @@ result interpretation;
 agent routing;
 document creation;
 recovery support;
-anti-overclaiming discipline.
+anti-overclaiming discipline;
+access to Business-plan app/tool capabilities when available.
 ```
 
 Policy:
 
 ```text
 Delta-D0 holds methodological continuity, not human authority.
+```
+
+Business sandbox note:
+
+```text
+The current working assistant may use capabilities available in the Business plan.
+This is an operational advantage, not a scientific dependency.
+The project should not require Business-only state for reproducibility.
+Any important result, decision, or protocol produced through the Business sandbox must be mirrored into GitHub.
+```
+
+Renewal note:
+
+```text
+Aleksey may need to renew or recreate the Business sandbox periodically, often monthly.
+Therefore recovery documents, GitHub state, and portable protocols are essential.
 ```
 
 ---
@@ -667,6 +686,14 @@ Core principle:
 If the workflow cannot be repeated in a new account, it is not yet part of the scientific method.
 ```
 
+Business-plan exception:
+
+```text
+ChatGPT Business sandbox capabilities may be used as an operational accelerator.
+They must not become the only place where scientific state exists.
+The free/repeatable baseline remains GitHub + markdown + Python + local CLI.
+```
+
 ---
 
 ## 6. Recommended project planning approach
@@ -680,6 +707,7 @@ GitHub docs
 local CLI / VS Code
 Qwen text review
 Google Drive only for readable drafts if needed
+ChatGPT Business sandbox for methodology and connector-assisted work when available
 ```
 
 Do not yet depend on:
@@ -690,7 +718,8 @@ CRM;
 support tools;
 calendar automation;
 API automation;
-MCP/app write actions.
+MCP/app write actions;
+Business-only hidden state.
 ```
 
 ### Stage 2 — after confirm_connectivity_variant2
@@ -827,6 +856,19 @@ confirm allowed/forbidden scope;
 record important changes back into GitHub.
 ```
 
+### Rule 7 — Business sandbox state must be externalized
+
+If ChatGPT Business capabilities are used to create, inspect, or coordinate project artifacts, important outputs must be externalized into:
+
+```text
+GitHub markdown;
+local scripts;
+exportable Drive documents;
+plain CSV/JSON/text artifacts.
+```
+
+Do not rely on the Business sandbox itself as the only memory.
+
 ---
 
 ## 9. Current recommended contour
@@ -838,7 +880,7 @@ GitHub = canonical project memory
 Google Drive = human-readable working layer
 VS Code/Codex = local execution support
 Qwen = skeptical review
-ChatGPT/Delta-D0 = methodological continuity
+ChatGPT Business sandbox / Delta-D0 = methodological continuity and connector-assisted coordination
 local CLI = reproducible execution
 ```
 
@@ -868,6 +910,7 @@ GitHub: active and primary.
 Google Drive: available, should be used selectively for drafts/tables/slides.
 VS Code/Codex: active for local execution and validation.
 Qwen: active external AI reviewer.
+ChatGPT Business sandbox: active operational environment, renewable/recoverable, not scientific source of truth.
 Skills: planned, first auditor prototype exists as a tool.
 Calendar/network planning: not yet active; recommended first as markdown roadmap or GitHub Issues.
 MCP/app layer: future development layer, not current baseline.
