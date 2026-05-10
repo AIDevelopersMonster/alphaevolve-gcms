@@ -1,12 +1,14 @@
 # v0.10 Fine Beta Grid Result: Variant 2
 
-**Status:** exploratory / pre-confirmatory result note  
+**Status:** strong exploratory support / pre-confirmatory result note  
 **Date:** 2026-05-10  
 **Experiment mode:** `fine_beta_v010`  
 **Output prefix:** `v010_fine_beta_variant2`  
-**Related review:** `docs/reviews/v010_fine_beta_experiment_review.md`  
+**Related pre-result review:** `docs/reviews/v010_fine_beta_experiment_review.md`  
+**Related Qwen result review:** `docs/reviews/v010_fine_beta_qwen_result_review.md`  
 **Related protocol:** `docs/EXPERIMENT_DESIGN_PROTOCOL.md`  
 **Processing tool:** `tools/audit_gcms_lite.py`  
+**Next priority:** `confirm_connectivity_variant2`  
 
 ---
 
@@ -195,7 +197,35 @@ Reason:
 
 ---
 
-## 8. Conservative result statement
+## 8. Qwen result review summary
+
+External Qwen review is recorded in:
+
+```text
+docs/reviews/v010_fine_beta_qwen_result_review.md
+```
+
+Qwen confirmed the main classification:
+
+```text
+beta=0.003: leading clean positive candidate.
+beta=0.004-0.005: practical transition candidates.
+beta=0.006-0.008: sparsification-dominated regime.
+beta=0.007: peak effect, high confound.
+```
+
+Qwen's main remaining blockers:
+
+```text
+connectivity metrics absent;
+failure-mode heterogeneity unexamined;
+density-matched ablation not performed;
+risk of largest-effect bias at beta=0.007.
+```
+
+---
+
+## 9. Conservative result statement
 
 Conservative statement:
 
@@ -205,6 +235,19 @@ transition in Variant 2. The earliest statistically supported non-collapse
 candidate is beta=0.003, while beta=0.004-0.005 provide stronger effects with
 increasing sparsification risk. Larger beta values show stronger effects but
 are less clean because uncompensated graph-sector quantities decline.
+```
+
+Qwen-compatible extended statement:
+
+```text
+In Variant 2 of the GCMS-D0 toy model, increasing the compensation-sensitivity
+parameter beta produces a monotonic transition in structural outcomes under a
+paired-seed design. Compensated worlds maintain stable structure_success across
+beta=0.003-0.008, while uncompensated worlds decline from 52% to 19%.
+These results provide preliminary toy-model evidence that compensation-aware
+relations can differentially affect globally compensated versus uncompensated
+systems. Confirmation requires connectivity metrics, failure-mode analysis,
+and density-matched ablation before broader interpretation.
 ```
 
 What this does not show:
@@ -217,7 +260,7 @@ This does not rule out connectivity fragmentation or unreported failure-mode con
 
 ---
 
-## 9. Limitations
+## 10. Limitations
 
 Known limitations of the current run:
 
@@ -228,6 +271,7 @@ Known limitations of the current run:
 4. No failure_reason / per-criterion failure counts.
 5. No explicit density-matched ablation.
 6. Multiple beta values were tested; beta=0.005 was prior candidate, but beta=0.003 emerges as earliest positive point.
+7. Residual output exists but is not yet summarized in this result note.
 ```
 
 Therefore:
@@ -239,17 +283,20 @@ A confirmatory run should add connectivity and failure-mode metrics.
 
 ---
 
-## 10. Recommended next experiment
+## 11. Recommended next experiment
 
-If the project chooses the earliest clean candidate:
+Qwen-prioritized next experiment:
 
 ```text
-confirmatory_variant2_beta003
+confirm_connectivity_variant2
 relation_variant = 2
-beta = 0.003
 model_modes = compensated, uncompensated
-seeds = 200
+beta = 0.003, 0.005, 0.007
+seeds = 100
 baseline_count = 100
+N = 150
+d = 4
+steps = 200
 ```
 
 Required additions:
@@ -260,26 +307,28 @@ n_components
 degree_variance or degree_gini
 failure_reason
 per-criterion failure counts
+sector_size distribution
+lifetime distribution
+density-matched / edge-matched compensated ablation
 recorded audit-tool commit/version
 ```
 
-Alternative if treating beta=0.004-0.005 as stronger transition region:
+Primary confirmatory question:
 
 ```text
-confirmatory_variant2_beta003_005
-beta = 0.003, 0.004, 0.005
-seeds = 200 each
-apply primary-beta or multiple-testing plan before run
+Does compensation_effect persist after density/edge matching, especially at beta=0.003?
 ```
 
 ---
 
-## 11. Result status
+## 12. Result status
 
 ```text
 Result status: strong exploratory support.
+Qwen result review: completed.
 Leading clean candidate: beta=0.003.
 Strong transition region: beta=0.004-0.005.
+Peak effect: beta=0.007.
 High-effect/high-confound region: beta=0.006-0.008.
-Next step: Qwen result review, then confirmatory design with connectivity/failure metrics.
+Next priority: confirm_connectivity_variant2.
 ```
