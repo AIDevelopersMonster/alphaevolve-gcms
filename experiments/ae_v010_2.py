@@ -16,6 +16,36 @@ This script separates:
 - strict_success: compensation_valid AND structure_success.
 
 It compares compensated, uncompensated, and residual modes across relation variants.
+
+Allowed actions:
+    Run simulations and write outputs/raw_*.csv, summary_*.csv,
+    comparison_*.csv, residual_*.csv.
+
+Forbidden actions:
+    Do not change success criteria after seeing results.
+    Do not commit generated CSV outputs unless explicitly archived.
+    Do not claim physical theory from toy-model outputs.
+
+Inputs:
+    CLI arguments: --mode, --out-prefix
+
+Outputs:
+    outputs/raw_<prefix>.csv
+    outputs/summary_<prefix>.csv
+    outputs/comparison_<prefix>.csv
+    outputs/residual_<prefix>.csv
+
+Output policy:
+    Generated outputs are local artifacts and should normally remain untracked.
+    Interpretations belong in docs/results/.
+
+Verification:
+    python -m py_compile experiments/ae_v010_2.py
+    python experiments/ae_v010_2.py --mode smoke_v010 --out-prefix v010_smoke
+    Check expected output files and required columns.
+
+Last updated:
+    2026-05-10
 """
 
 from __future__ import annotations
@@ -120,6 +150,21 @@ PRESETS = {
         "model_modes": ["compensated", "uncompensated"],
         "relation_variants": [2],
         "betas": [0.003, 0.004, 0.005, 0.006, 0.007, 0.008],
+        "epsilon_norms": [0.0],
+        "lambda_values": [0.0],
+    },
+    "confirm_connectivity_variant2": {
+        "N": 150,
+        "d": 4,
+        "steps": 200,
+        "seeds": 100,
+        "baseline_count": 100,
+        "alpha": 0.5,
+        "threshold": 0.75,
+        "mutation_rate": 0.10,
+        "model_modes": ["compensated", "uncompensated"],
+        "relation_variants": [2],
+        "betas": [0.003, 0.005, 0.007],
         "epsilon_norms": [0.0],
         "lambda_values": [0.0],
     },
@@ -321,6 +366,12 @@ class Simulator:
 
         clustering = float(nx.average_clustering(g))
         density = float(nx.density(g))
+        components = list(nx.connected_components(g))
+        n_components = len(components)
+        largest_component = max((len(c) for c in components), default=0)
+        largest_component_fraction = float(largest_component / n) if n else 0.0
+        degrees = np.array([deg for _, deg in g.degree()], dtype=float)
+        degree_variance = float(np.var(degrees)) if len(degrees) else 0.0
         rng = np.random.default_rng(seed)
 
         gnp_clusts: List[float] = []
@@ -355,6 +406,9 @@ class Simulator:
             "dp_valid": bool(dp_valid),
             "dp_swap_success_rate": float(dp_swap_success_rate),
             "structure_success": bool(structure_success),
+            "n_components": n_components,
+            "largest_component_fraction": largest_component_fraction,
+            "degree_variance": degree_variance,
         }
 
     def mutate_and_step(self, mutation_rate: float, step_seed: int):
@@ -450,11 +504,38 @@ def run_single(cfg: Dict[str, Any], model_mode: str, variant: int, beta: float, 
             "dp_valid": False,
             "dp_swap_success_rate": 0.0,
             "structure_success": False,
+            "n_components": 0,
+            "largest_component_fraction": 0.0,
+            "degree_variance": 0.0,
         }
+
+    failed_p_gnp = data["p_gnp_empirical"] >= 0.05
+    failed_dp_valid = not bool(data["dp_valid"])
+    failed_p_dp = bool(data["dp_valid"]) and data["p_dp_empirical"] >= 0.05
+    failed_lifetime = int(data["lifetime"]) <= 20
+    failed_sector_size = int(data["sector_size"]) < sim.min_size or int(data["sector_size"]) > sim.max_size
+
+    # NOTE: failed_sector_size is based on the raw sector_size field. If sector_size is zero or out of allowed bounds,
+    # it is considered a sector-size failure. The current simulator only returns valid sectors for deep_analysis.
+
+    failure_reasons: List[str] = []
+    if failed_sector_size:
+        failure_reasons.append("sector_size")
+    if failed_lifetime:
+        failure_reasons.append("lifetime")
+    if failed_dp_valid:
+        failure_reasons.append("dp_valid")
+    if failed_p_gnp:
+        failure_reasons.append("p_gnp")
+    if failed_p_dp:
+        failure_reasons.append("p_dp")
+    if not failure_reasons:
+        failure_reasons.append("none")
 
     global_error = world.global_error()
     compensation_valid = global_error < 1e-12
     strict_success = bool(compensation_valid and data["structure_success"])
+    failure_reason = "|".join(failure_reasons)
 
     return {
         "model_mode": model_mode,
@@ -474,6 +555,12 @@ def run_single(cfg: Dict[str, Any], model_mode: str, variant: int, beta: float, 
         "compensation_valid": compensation_valid,
         "strict_success": strict_success,
         "analyzed": analyzed,
+        "failure_reason": failure_reason,
+        "failed_p_gnp": bool(failed_p_gnp),
+        "failed_p_dp": bool(failed_p_dp),
+        "failed_dp_valid": bool(failed_dp_valid),
+        "failed_lifetime": bool(failed_lifetime),
+        "failed_sector_size": bool(failed_sector_size),
         **data,
     }
 
@@ -489,6 +576,14 @@ def make_summary(df: pd.DataFrame) -> pd.DataFrame:
         mean_global_error=("global_error", "mean"),
         mean_lifetime=("lifetime", "mean"),
         mean_sector_size=("sector_size", "mean"),
+        mean_n_components=("n_components", "mean"),
+        mean_largest_component_fraction=("largest_component_fraction", "mean"),
+        mean_degree_variance=("degree_variance", "mean"),
+        failed_p_gnp_rate=("failed_p_gnp", "mean"),
+        failed_p_dp_rate=("failed_p_dp", "mean"),
+        failed_dp_valid_rate=("failed_dp_valid", "mean"),
+        failed_lifetime_rate=("failed_lifetime", "mean"),
+        failed_sector_size_rate=("failed_sector_size", "mean"),
         mean_dp_valid=("dp_valid", "mean"),
         mean_dp_swap_success_rate=("dp_swap_success_rate", "mean"),
     ).reset_index()
