@@ -243,6 +243,16 @@ Check whether a new AI instance can recover the GCMS-D0 working role from archiv
 
 This is not a personality test and not a test of self-consciousness.
 
+### `docs/AGENT_INTERACTION_PROTOCOL.md`
+
+Defines how ChatGPT/Delta-D0, Codex, Qwen, Gemini, future skills, and GitHub coordinate.
+
+Purpose:
+
+```text
+Use GitHub as external memory and a coordination layer while preserving Aleksey's resolution function.
+```
+
 ### `docs/GCMS-D0_CHECKPOINT.md`
 
 Status:
@@ -261,9 +271,16 @@ or close/rebuild PR #5.
 
 ---
 
-## 7. AI-interaction and skills documents
+## 7. Skills-related documents and workspace
 
-### `docs/AI_INTERACTION_SKILL_PART1.md`
+There are two distinct skills areas:
+
+```text
+docs/skills/  -> documentation about AI-interaction skills and skill strategy
+skills/       -> workspace for future actual skill packages/proposals
+```
+
+### `docs/skills/AI_INTERACTION_SKILL_PART1.md`
 
 Part 1: development of the human skill of working with AI using GCMS-D0 as an example.
 
@@ -273,7 +290,7 @@ Focus:
 From prompt-answer interaction to a documented research contour.
 ```
 
-### `docs/AI_INTERACTION_SKILL_PART2.md`
+### `docs/skills/AI_INTERACTION_SKILL_PART2.md`
 
 Part 2: skills roadmap for formalizing GCMS-D0 workflows.
 
@@ -300,9 +317,61 @@ It will standardize CSV analysis, confidence intervals, McNemar tests,
 density audits, graph-collapse warnings, and conservative interpretation.
 ```
 
+### `skills/README.md`
+
+Defines the root workspace for skill proposals and future packaged skills.
+
+Status:
+
+```text
+Planning workspace, not installed skills yet.
+```
+
+### `skills/TASKS.md`
+
+Task roadmap for building GCMS-D0 skills.
+
+### `skills/proposals/gcms-result-auditor/README.md`
+
+Proposal for the first skill.
+
+Purpose:
+
+```text
+Formalize repeated GCMS result auditing into a reusable AI skill.
+```
+
 ---
 
-## 8. Outputs directory
+## 8. Tools directory
+
+### `tools/`
+
+Local analysis utilities.
+
+Status:
+
+```text
+Working prototypes for future reusable analysis workflows.
+```
+
+Known utilities:
+
+```text
+analyze_focused_variant2.py
+analyze_beta_grid_variant2.py
+```
+
+Relationship to skills:
+
+```text
+tools = working prototypes
+skills = formalized procedures
+```
+
+---
+
+## 9. Outputs directory
 
 ### `outputs/`
 
@@ -327,7 +396,7 @@ Record interpreted results in docs/results instead.
 
 ---
 
-## 9. Tests directory
+## 10. Tests directory
 
 ### `tests/`
 
@@ -351,7 +420,7 @@ Recommended future tests:
 
 ---
 
-## 10. Branch inventory
+## 11. Branch inventory
 
 Observed remote branches:
 
@@ -379,7 +448,9 @@ results docs
 validation docs
 mutual protocol
 recovery quiz
-AI interaction skill notes
+agent interaction protocol
+AI interaction skill docs
+skills workspace
 ```
 
 ### `v010-methodology`
@@ -468,7 +539,7 @@ Inspect before deletion. If empty/stale, delete.
 
 ---
 
-## 11. Pull request inventory
+## 12. Pull request inventory
 
 ### PR #1: Add tests directory
 
@@ -549,7 +620,7 @@ then close or replace PR #5.
 
 ---
 
-## 12. Current scientific state
+## 13. Current scientific state
 
 Current best result:
 
@@ -597,7 +668,7 @@ failure-mode counts
 
 ---
 
-## 13. Immediate cleanup recommendations
+## 14. Immediate cleanup recommendations
 
 1. Update `README.md` to point to this inventory and summarize v0.10.2.
 2. Close stale PR #3 if no unique useful content remains.
@@ -608,7 +679,7 @@ failure-mode counts
 
 ---
 
-## 14. Local git audit commands for Aleksey
+## 15. Local git audit commands for Aleksey
 
 Run locally:
 
@@ -632,6 +703,8 @@ List documents:
 dir docs
 dir docs\results
 dir docs\validation
+dir docs\skills
+dir skills
 ```
 
 Open this inventory:
