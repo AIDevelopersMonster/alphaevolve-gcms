@@ -82,6 +82,17 @@ SMOKE_CONFIG = {
     "lambda_val": 0.0,
 }
 
+FULL_CONFIG_DRAFT = {
+    # Draft parameters for a future full density-matched ablation sweep.
+    # Not implemented, not executable, and not authorized for use.
+    **SMOKE_CONFIG,
+    "target_edge_counts": [25, 30, 35, 40],
+    "seeds": 100,
+    "repetitions_per_target": 10,
+    "baseline_count": 100,
+    "subsampling_method": "random_edge_removal_preliminary",
+}
+
 MIN_SECTOR_SIZE = 5
 MAX_SECTOR_SIZE = 60
 
