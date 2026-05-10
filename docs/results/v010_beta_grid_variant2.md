@@ -57,6 +57,20 @@ lambda_values = 0.0
 
 ---
 
+## Statistical audit method
+
+The post-run audit used:
+
+```text
+Wilson score interval for individual structure_success rates.
+Approximate normal confidence interval for the difference of two proportions.
+Exact McNemar test, implemented as a two-sided exact binomial test on discordant paired seeds.
+```
+
+The McNemar test is appropriate here because compensated and uncompensated runs are paired by seed.
+
+---
+
 ## Main observed transition
 
 The compensated mode stayed essentially stable across beta values:
@@ -91,7 +105,7 @@ beta = 0.000, 0.001, 0.002
 
 The effect is small or statistically weak. The system behaves close to the distance-only control.
 
-### 2. Non-collapse compensation regime
+### 2. Intermediate non-collapse compensation regime
 
 ```text
 beta = 0.005
@@ -99,24 +113,44 @@ beta = 0.005
 
 This is the current most interesting regime.
 
-Observed result:
+Observed structure_success result:
 
 ```text
 compensated:   37 / 50 = 74%
 uncompensated: 22 / 50 = 44%
 compensation_effect_attempted = +30 percentage points
-approx 95% CI ~= [11.6%, 48.4%]
-McNemar p ~= 0.0041
+approx 95% CI for effect = [11.6%, 48.4%]
+exact McNemar p ~= 0.0041
 ```
 
-The uncompensated graph is degraded, but not collapsed:
+Paired seed table:
 
 ```text
-uncompensated analyzed_runs = 46 / 50
-mean edge_count ~= 19.18
-mean lifetime ~= 134.82
-mean dp_valid ~= 0.84
+both_success:   17
+comp_only:      20
+uncomp_only:     5
+both_fail:       8
 ```
+
+Direct density/sector audit at `beta=0.005`:
+
+```text
+                 compensated     uncompensated
+analyzed         46 / 50         46 / 50
+structure_success 37 / 50        22 / 50
+edge_count       43.36           19.18
+density           0.119888        0.223705
+mean_degree       2.657782        2.373795
+sector_size      28.74           14.16
+lifetime        152.52          134.82
+dp_valid          0.90            0.84
+```
+
+Interpretation:
+
+At `beta=0.005`, the uncompensated mode is degraded but not collapsed. It has the same analyzed-run fraction as the compensated mode (`46/50`), nonzero edge count, long lifetime, and comparable mean degree inside detected sectors.
+
+However, it forms smaller sectors with fewer edges and lower success rate. This supports an intermediate **compensation-sensitive degradation** regime, not a pure graph-collapse explanation.
 
 This makes `beta=0.005` a better scientific candidate than `beta=0.05`, because the effect is not simply caused by total graph collapse.
 
@@ -128,9 +162,21 @@ beta = 0.01, 0.02, 0.05
 
 The observed compensation effect becomes larger, but the uncompensated graph increasingly loses analyzable sectors.
 
-At `beta=0.05`, previous density audit showed:
+At `beta=0.01`:
 
 ```text
+uncompensated structure_success = 7 / 50 = 14%
+uncompensated analyzed_runs = 38 / 50
+uncompensated mean edge_count ~= 8.76
+uncompensated mean sector_size ~= 7.46
+uncompensated mean lifetime ~= 108.32
+```
+
+At `beta=0.05`:
+
+```text
+uncompensated structure_success = 1 / 50 = 2%
+uncompensated analyzed_runs = 7 / 50
 uncompensated mean edge_count ~= 0.56
 uncompensated mean density ~= 0.0384
 uncompensated mean sector_size ~= 0.82
@@ -148,7 +194,7 @@ The current best statement is:
 ```text
 Variant 2 shows a compensation-sensitive transition.
 For very small beta, it behaves close to the distance-only control.
-Around beta=0.005, compensated worlds retain structure while uncompensated worlds degrade but do not collapse.
+Around beta=0.005, compensated worlds retain structure while uncompensated worlds degrade without full collapse.
 For larger beta, uncompensated worlds undergo strong graph sparsification or collapse.
 ```
 
@@ -188,10 +234,11 @@ development may occur near zero, not merely at zero or far from zero.
 
 1. This is still a toy-model result.
 2. It does not prove a physical theory.
-3. Confidence intervals and McNemar tests should be recorded directly in analysis output.
-4. Density, edge count, sector size, and lifetime should be included in future summary tables.
+3. The current confidence interval for the effect is an approximate two-proportion interval, not a paired bootstrap interval.
+4. Degree variance and full degree distributions were not recorded in the raw output.
 5. `beta=0.005` needs confirmation with more seeds.
 6. The transition curve should be refined around `0.003-0.008`.
+7. The analyzed-run failures should be characterized directly in future scripts.
 
 ---
 
@@ -219,9 +266,12 @@ confidence intervals
 McNemar p-value
 mean_density
 mean_edge_count
+mean_degree
+degree variance / degree distribution
 analyzed_runs
 mean_sector_size
 mean_lifetime
+failure-mode counts
 ```
 
 Primary target:
@@ -252,5 +302,5 @@ Variant 2 proves global compensation causes local structure.
 The correct status remains:
 
 ```text
-preliminary toy-model mechanism, now supported by a focused transition experiment.
+preliminary toy-model mechanism, now supported by a focused transition experiment and a direct density audit.
 ```
