@@ -13,32 +13,37 @@ Script:
     tools/ablate_density_variant2.py
 
 Script type:
-    smoke-mode ablation tool
+    density-matched ablation tool
 
 Status:
-    preliminary density-matched ablation smoke runner
+    smoke mode implemented and validated
+    full mode implemented but not executed
 
 Purpose:
-    Generate a small pilot ablation dataset for Variant 2 compensated graphs
+    Generate density-matched ablation datasets for Variant 2 compensated graphs
     by randomly removing edges to target edge counts and recomputing raw
     connectivity diagnostics.
 
 Allowed actions:
-    Read experiment code and run smoke ablation from a local .venv.
+    Read experiment code.
+    Run smoke ablation from a local .venv.
+    Run full ablation only after explicit human authorization.
 
 Forbidden actions:
     Do not modify experiment success criteria.
     Do not change existing experiment presets.
-    Do not run the full density-matched ablation sweep.
+    Do not run the full density-matched ablation sweep without explicit authorization.
     Do not commit generated outputs by default.
 
 Inputs:
     --mode smoke
+    --mode full
     --out-prefix <prefix>
 
 Outputs:
     outputs/raw_<prefix>.csv
     outputs/summary_<prefix>.csv
+    outputs/per_seed_<prefix>.csv (full mode only)
 
 Verification:
     python -m py_compile tools/ablate_density_variant2.py
@@ -80,17 +85,17 @@ SMOKE_CONFIG = {
     "mutation_rate": 0.10,
     "epsilon_norm": 0.0,
     "lambda_val": 0.0,
+    "max_seed_scan": 51,
 }
 
-FULL_CONFIG_DRAFT = {
-    # Draft parameters for a future full density-matched ablation sweep.
-    # Not implemented, not executable, and not authorized for use.
+FULL_CONFIG = {
     **SMOKE_CONFIG,
     "target_edge_counts": [25, 30, 35, 40],
     "seeds": 100,
     "repetitions_per_target": 10,
     "baseline_count": 100,
     "subsampling_method": "random_edge_removal_preliminary",
+    "max_seed_scan": 10000,
 }
 
 MIN_SECTOR_SIZE = 5
@@ -250,27 +255,27 @@ def random_edge_removal(g: nx.Graph, target_edge_count: int, rng: np.random.Gene
     return h
 
 
-def find_smoke_seeds(max_target_edge: int, required_seeds: int) -> List[int]:
+def find_reachable_seeds(max_target_edge: int, required_seeds: int, config: Dict[str, Any]) -> List[int]:
     selected: List[int] = []
-    for seed in range(51):
+    for seed in range(config["max_seed_scan"]):
         world = World(
-            SMOKE_CONFIG["N"],
-            SMOKE_CONFIG["d"],
-            SMOKE_CONFIG["model_mode"],
-            SMOKE_CONFIG["epsilon_norm"],
+            config["N"],
+            config["d"],
+            config["model_mode"],
+            config["epsilon_norm"],
             seed,
         )
         sim = SimulatorWithNodes(
             world=world,
-            relation_variant=SMOKE_CONFIG["relation_variant"],
-            alpha=SMOKE_CONFIG["alpha"],
-            threshold=SMOKE_CONFIG["threshold"],
-            beta=SMOKE_CONFIG["beta"],
-            lambda_val=SMOKE_CONFIG["lambda_val"],
-            baseline_count=SMOKE_CONFIG["baseline_count"],
+            relation_variant=config["relation_variant"],
+            alpha=config["alpha"],
+            threshold=config["threshold"],
+            beta=config["beta"],
+            lambda_val=config["lambda_val"],
+            baseline_count=config["baseline_count"],
         )
-        for step in range(SMOKE_CONFIG["steps"]):
-            sim.mutate_and_step(SMOKE_CONFIG["mutation_rate"], step_seed=seed * 100000 + step)
+        for step in range(config["steps"]):
+            sim.mutate_and_step(config["mutation_rate"], step_seed=seed * 100000 + step)
 
         cluster_nodes: Optional[Set[int]] = None
         if sim.valid_size(sim.current_indices) and sim.lifetime > 20:
@@ -299,36 +304,54 @@ def make_summary(df: pd.DataFrame) -> pd.DataFrame:
         target_reachable_count=("target_reachable", "sum"),
         target_reached_count=("target_reached", "sum"),
         target_reached_rate=("target_reached", "mean"),
-        structure_success_rate_attempted=("structure_success", "mean"),
-        structure_success_rate_analyzed=("structure_success", "mean"),
-        mean_actual_edge_count=("actual_edge_count", "mean"),
-        mean_original_edge_count=("original_edge_count", "mean"),
-        mean_edge_removal_fraction=("edge_removal_fraction", "mean"),
-        mean_sector_size=("sector_size", "mean"),
-        mean_density=("density", "mean"),
-        mean_n_components=("n_components", "mean"),
-        mean_largest_component_fraction=("largest_component_fraction", "mean"),
-        mean_degree_variance=("degree_variance", "mean"),
-        failed_p_gnp_rate=("failed_p_gnp", "mean"),
-        failed_p_dp_rate=("failed_p_dp", "mean"),
-        failed_dp_valid_rate=("failed_dp_valid", "mean"),
-        failed_lifetime_rate=("failed_lifetime", "mean"),
-        failed_sector_size_rate=("failed_sector_size", "mean"),
-        mean_dp_valid=("dp_valid", "mean"),
-        mean_dp_swap_success_rate=("dp_swap_success_rate", "mean"),
+        structure_success_rate_attempted_all=("structure_success", "mean"),
+        mean_actual_edge_count_all=("actual_edge_count", "mean"),
+        mean_original_edge_count_all=("original_edge_count", "mean"),
     ).reset_index()
-    reached = df[df["target_reached"]].groupby(keys).agg(
+    reached_df = df[df["target_reached"]]
+    reached = reached_df.groupby(keys).agg(
         structure_success_rate_attempted_reached=("structure_success", "mean"),
+        structure_success_rate_analyzed_reached=("structure_success", "mean"),
+        mean_actual_edge_count_reached=("actual_edge_count", "mean"),
+        mean_edge_removal_fraction_reached=("edge_removal_fraction", "mean"),
+        mean_sector_size_reached=("sector_size", "mean"),
+        mean_density_reached=("density", "mean"),
+        mean_n_components_reached=("n_components", "mean"),
+        mean_largest_component_fraction_reached=("largest_component_fraction", "mean"),
+        mean_degree_variance_reached=("degree_variance", "mean"),
+        failed_p_gnp_rate_reached=("failed_p_gnp", "mean"),
+        failed_p_dp_rate_reached=("failed_p_dp", "mean"),
+        failed_dp_valid_rate_reached=("failed_dp_valid", "mean"),
+        failed_lifetime_rate_reached=("failed_lifetime", "mean"),
+        failed_sector_size_rate_reached=("failed_sector_size", "mean"),
+        mean_dp_valid_reached=("dp_valid", "mean"),
+        mean_dp_swap_success_rate_reached=("dp_swap_success_rate", "mean"),
     ).reset_index()
     summary = summary.merge(reached, on=keys, how="left")
+    # Fill NaN with appropriate defaults
     summary["structure_success_rate_attempted_reached"] = summary["structure_success_rate_attempted_reached"].fillna(0.0)
+    summary["structure_success_rate_analyzed_reached"] = summary["structure_success_rate_analyzed_reached"].fillna(0.0)
     return summary
+
+
+def make_per_seed(df: pd.DataFrame) -> pd.DataFrame:
+    keys = ["target_edge_count", "seed"]
+    per_seed = df[df["target_reached"]].groupby(keys).agg(
+        reached_repetitions=("target_reached", "count"),
+        success_count=("structure_success", "sum"),
+        success_fraction_per_seed_target=("structure_success", "mean"),
+        majority_success_per_seed_target=("structure_success", lambda x: (x.sum() > len(x) / 2).astype(int)),
+        mean_largest_component_fraction_per_seed_target=("largest_component_fraction", "mean"),
+        mean_failed_p_gnp_per_seed_target=("failed_p_gnp", "mean"),
+        mean_sector_size_per_seed_target=("sector_size", "mean"),
+    ).reset_index()
+    return per_seed
 
 
 def run_smoke(out_prefix: str) -> None:
     rows: List[Dict[str, Any]] = []
     max_target_edge = max(SMOKE_CONFIG["target_edge_counts"])
-    selected_seeds = find_smoke_seeds(max_target_edge, SMOKE_CONFIG["seeds"])
+    selected_seeds = find_reachable_seeds(max_target_edge, SMOKE_CONFIG["seeds"], SMOKE_CONFIG)
     if len(selected_seeds) < SMOKE_CONFIG["seeds"]:
         print(
             f"Warning: only found {len(selected_seeds)} reachable smoke seed(s) "
@@ -444,14 +467,138 @@ def run_smoke(out_prefix: str) -> None:
     print(f"Wrote {summary_path}")
 
 
+def run_full(out_prefix: str) -> None:
+    rows: List[Dict[str, Any]] = []
+    max_target_edge = max(FULL_CONFIG["target_edge_counts"])
+    selected_seeds = find_reachable_seeds(max_target_edge, FULL_CONFIG["seeds"], FULL_CONFIG)
+    if len(selected_seeds) < FULL_CONFIG["seeds"]:
+        print(
+            f"Warning: only found {len(selected_seeds)} reachable full seed(s) "
+            f"for max_target_edge={max_target_edge}."
+        )
+    if not selected_seeds:
+        raise RuntimeError(
+            f"No full seeds found with original_edge_count >= {max_target_edge}."
+        )
+
+    for seed in selected_seeds:
+        world = World(
+            FULL_CONFIG["N"],
+            FULL_CONFIG["d"],
+            FULL_CONFIG["model_mode"],
+            FULL_CONFIG["epsilon_norm"],
+            seed,
+        )
+        sim = SimulatorWithNodes(
+            world=world,
+            relation_variant=FULL_CONFIG["relation_variant"],
+            alpha=FULL_CONFIG["alpha"],
+            threshold=FULL_CONFIG["threshold"],
+            beta=FULL_CONFIG["beta"],
+            lambda_val=FULL_CONFIG["lambda_val"],
+            baseline_count=FULL_CONFIG["baseline_count"],
+        )
+
+        for step in range(FULL_CONFIG["steps"]):
+            sim.mutate_and_step(FULL_CONFIG["mutation_rate"], step_seed=seed * 100000 + step)
+
+        cluster_nodes: Optional[Set[int]] = None
+        cluster_lifetime = 0
+        if sim.valid_size(sim.current_indices) and sim.lifetime > 20:
+            sim.deep_analysis(sim.current_indices, seed=seed * 99991 + FULL_CONFIG["steps"])
+            cluster_nodes = set(sim.current_indices)
+            cluster_lifetime = sim.lifetime
+        elif sim.best_sector_nodes is not None:
+            cluster_nodes = sim.best_sector_nodes
+            cluster_lifetime = sim.best_sector_lifetime
+
+        if not cluster_nodes:
+            continue
+
+        g_original = sim.build_graph(cluster_nodes)
+        original_edge_count = g_original.number_of_edges()
+        baseline_sim = SimulatorWithNodes(
+            world=world,
+            relation_variant=FULL_CONFIG["relation_variant"],
+            alpha=FULL_CONFIG["alpha"],
+            threshold=FULL_CONFIG["threshold"],
+            beta=FULL_CONFIG["beta"],
+            lambda_val=FULL_CONFIG["lambda_val"],
+            baseline_count=FULL_CONFIG["baseline_count"],
+        )
+
+        for target_edge_count in FULL_CONFIG["target_edge_counts"]:
+            for rep in range(FULL_CONFIG["repetitions_per_target"]):
+                rng = np.random.default_rng(seed * 100000 + target_edge_count * 1000 + rep)
+                subsampled = random_edge_removal(g_original, target_edge_count, rng)
+                actual_edge_count = subsampled.number_of_edges()
+                target_reachable = original_edge_count >= target_edge_count
+                target_reached = target_reachable and actual_edge_count == target_edge_count
+                if target_reachable:
+                    reachability_reason = "reached" if target_reached else "failed_to_reach"
+                else:
+                    reachability_reason = "unreachable_original_edge_count"
+
+                metrics = analyze_graph(
+                    subsampled,
+                    world,
+                    cluster_lifetime,
+                    FULL_CONFIG["baseline_count"],
+                    analysis_seed=seed * 1000000 + target_edge_count * 100 + rep,
+                    baseline_sim=baseline_sim,
+                )
+                rows.append(
+                    {
+                        "model_mode": FULL_CONFIG["model_mode"],
+                        "relation_variant": FULL_CONFIG["relation_variant"],
+                        "beta": FULL_CONFIG["beta"],
+                        "seed": seed,
+                        "subsample_rep": rep,
+                        "target_edge_count": target_edge_count,
+                        "actual_edge_count": actual_edge_count,
+                        "original_edge_count": original_edge_count,
+                        "edge_removal_count": max(0, original_edge_count - actual_edge_count),
+                        "edge_removal_fraction": (
+                            float(original_edge_count - actual_edge_count) / original_edge_count
+                            if original_edge_count > 0
+                            else 0.0
+                        ),
+                        "subsampling_method": FULL_CONFIG["subsampling_method"],
+                        "target_reachable": bool(target_reachable),
+                        "target_reached": bool(target_reached),
+                        "reachability_reason": reachability_reason,
+                        "N": FULL_CONFIG["N"],
+                        "d": FULL_CONFIG["d"],
+                        "steps": FULL_CONFIG["steps"],
+                        "baseline_count": FULL_CONFIG["baseline_count"],
+                        "mutation_rate": FULL_CONFIG["mutation_rate"],
+                        **metrics,
+                    }
+                )
+
+    df = pd.DataFrame(rows)
+    os.makedirs("outputs", exist_ok=True)
+    raw_path = f"outputs/raw_{out_prefix}.csv"
+    summary_path = f"outputs/summary_{out_prefix}.csv"
+    per_seed_path = f"outputs/per_seed_{out_prefix}.csv"
+    df.to_csv(raw_path, index=False)
+    make_summary(df).to_csv(summary_path, index=False)
+    make_per_seed(df).to_csv(per_seed_path, index=False)
+    print(f"Wrote {raw_path}")
+    print(f"Wrote {summary_path}")
+    print(f"Wrote {per_seed_path}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=["smoke"], default="smoke")
+    parser.add_argument("--mode", choices=["smoke", "full"], default="smoke")
     parser.add_argument("--out-prefix", default="density_ablation_variant2")
     args = parser.parse_args()
 
     if args.mode == "smoke":
         run_smoke(args.out_prefix)
+    elif args.mode == "full":
+        run_full(args.out_prefix)
     else:
         raise ValueError(f"Unsupported mode: {args.mode}")
 
