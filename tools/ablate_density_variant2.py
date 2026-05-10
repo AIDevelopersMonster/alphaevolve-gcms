@@ -38,12 +38,13 @@ Forbidden actions:
 Inputs:
     --mode smoke
     --mode full
+    --mode lcf_smoke
     --out-prefix <prefix>
 
 Outputs:
     outputs/raw_<prefix>.csv
     outputs/summary_<prefix>.csv
-    outputs/per_seed_<prefix>.csv (full mode only)
+    outputs/per_seed_<prefix>.csv (full mode, lcf_smoke mode)
 
 Verification:
     python -m py_compile tools/ablate_density_variant2.py
@@ -96,6 +97,14 @@ FULL_CONFIG = {
     "baseline_count": 100,
     "subsampling_method": "random_edge_removal_preliminary",
     "max_seed_scan": 10000,
+}
+
+LCF_SMOKE_CONFIG = {
+    **SMOKE_CONFIG,
+    "target_edge_counts": [25, 30],
+    "subsampling_method": "greedy_non_bridge_removal_with_LCF_constraint",
+    "lcf_min_threshold": 0.85,
+    "max_attempts_per_seed": 100,
 }
 
 MIN_SECTOR_SIZE = 5
@@ -255,6 +264,57 @@ def random_edge_removal(g: nx.Graph, target_edge_count: int, rng: np.random.Gene
     return h
 
 
+def largest_component_fraction(g: nx.Graph) -> float:
+    n = g.number_of_nodes()
+    if n == 0:
+        return 0.0
+    components = list(nx.connected_components(g))
+    largest_component = max((len(c) for c in components), default=0)
+    return float(largest_component / n)
+
+
+def lcf_constrained_edge_removal(
+    g: nx.Graph,
+    target_edge_count: int,
+    lcf_min_threshold: float,
+    rng: np.random.Generator,
+    max_attempts: int,
+) -> Tuple[nx.Graph, bool, bool, str, int, int]:
+    h = g.copy()
+    removal_attempts = 0
+    removal_failures = 0
+    while h.number_of_edges() > target_edge_count and removal_attempts < max_attempts:
+        removal_attempts += 1
+        bridge_edges = {tuple(sorted(e)) for e in nx.bridges(h)}
+        candidates = [e for e in h.edges() if tuple(sorted(e)) not in bridge_edges]
+        if not candidates:
+            return h, False, largest_component_fraction(h) >= lcf_min_threshold, "failed_no_non_bridge_edges", removal_attempts, removal_failures
+
+        edge = tuple(rng.choice(candidates))
+        h_candidate = h.copy()
+        h_candidate.remove_edge(*edge)
+        lcf_after = largest_component_fraction(h_candidate)
+        if lcf_after >= lcf_min_threshold:
+            h = h_candidate
+        else:
+            removal_failures += 1
+
+    actual_lcf = largest_component_fraction(h)
+    target_reached = h.number_of_edges() == target_edge_count
+    connectivity_preserved = actual_lcf >= lcf_min_threshold
+    if not target_reached:
+        if removal_attempts >= max_attempts:
+            reason = "failed_max_attempts"
+        else:
+            reason = "not_reached"
+    elif connectivity_preserved:
+        reason = "preserved"
+    else:
+        reason = "failed_lcf_constraint"
+
+    return h, target_reached, connectivity_preserved, reason, removal_attempts, removal_failures
+
+
 def find_reachable_seeds(max_target_edge: int, required_seeds: int, config: Dict[str, Any]) -> List[int]:
     selected: List[int] = []
     for seed in range(config["max_seed_scan"]):
@@ -345,6 +405,79 @@ def make_per_seed(df: pd.DataFrame) -> pd.DataFrame:
         mean_failed_p_gnp_per_seed_target=("failed_p_gnp", "mean"),
         mean_sector_size_per_seed_target=("sector_size", "mean"),
     ).reset_index()
+    return per_seed
+
+
+def make_lcf_summary(df: pd.DataFrame) -> pd.DataFrame:
+    keys = ["subsampling_method", "target_edge_count"]
+    summary = df.groupby(keys).agg(
+        attempted_runs_all=("seed", "count"),
+        target_reached_count=("target_reached", "sum"),
+        target_reached_rate=("target_reached", "mean"),
+        target_connectivity_preserved_count=("target_connectivity_preserved", "sum"),
+        target_connectivity_preserved_rate=("target_connectivity_preserved", "mean"),
+        valid_lcf_matched_count=("valid_lcf_matched", "sum"),
+        valid_lcf_matched_rate=("valid_lcf_matched", "mean"),
+        mean_removal_attempts=("removal_attempts", "mean"),
+        mean_removal_failures=("removal_failures", "mean"),
+    ).reset_index()
+    valid_df = df[df["valid_lcf_matched"]]
+    valid = valid_df.groupby(keys).agg(
+        structure_success_rate_valid=("structure_success", "mean"),
+        mean_actual_edge_count_valid=("actual_edge_count", "mean"),
+        mean_largest_component_fraction_valid=("largest_component_fraction", "mean"),
+        mean_n_components_valid=("n_components", "mean"),
+        mean_degree_variance_valid=("degree_variance", "mean"),
+        mean_sector_size_valid=("sector_size", "mean"),
+        failed_p_gnp_rate_valid=("failed_p_gnp", "mean"),
+        failed_p_dp_rate_valid=("failed_p_dp", "mean"),
+        failed_dp_valid_rate_valid=("failed_dp_valid", "mean"),
+        mean_dp_valid_valid=("dp_valid", "mean"),
+        mean_dp_swap_success_rate_valid=("dp_swap_success_rate", "mean"),
+    ).reset_index()
+    summary = summary.merge(valid, on=keys, how="left")
+    summary = summary.fillna(
+        {
+            "structure_success_rate_valid": 0.0,
+            "mean_actual_edge_count_valid": 0.0,
+            "mean_largest_component_fraction_valid": 0.0,
+            "mean_n_components_valid": 0.0,
+            "mean_degree_variance_valid": 0.0,
+            "mean_sector_size_valid": 0.0,
+            "failed_p_gnp_rate_valid": 0.0,
+            "failed_p_dp_rate_valid": 0.0,
+            "failed_dp_valid_rate_valid": 0.0,
+            "mean_dp_valid_valid": 0.0,
+            "mean_dp_swap_success_rate_valid": 0.0,
+        }
+    )
+    return summary
+
+
+def make_lcf_per_seed(df: pd.DataFrame) -> pd.DataFrame:
+    keys = ["target_edge_count", "seed"]
+    all_group = df.groupby(keys).agg(
+        connectivity_preservation_fraction_per_seed_target=("target_connectivity_preserved", "mean"),
+    )
+    valid_group = df[df["valid_lcf_matched"]].groupby(keys).agg(
+        valid_repetitions=("valid_lcf_matched", "count"),
+        success_count_valid=("structure_success", "sum"),
+        success_fraction_per_seed_target_valid=("structure_success", "mean"),
+        mean_largest_component_fraction_per_seed_target_valid=("largest_component_fraction", "mean"),
+        mean_failed_p_gnp_per_seed_target_valid=("failed_p_gnp", "mean"),
+        mean_sector_size_per_seed_target_valid=("sector_size", "mean"),
+    )
+    per_seed = all_group.join(valid_group, how="left").reset_index()
+    per_seed["valid_repetitions"] = per_seed["valid_repetitions"].fillna(0).astype(int)
+    per_seed["success_count_valid"] = per_seed["success_count_valid"].fillna(0).astype(int)
+    per_seed["success_fraction_per_seed_target_valid"] = per_seed["success_fraction_per_seed_target_valid"].fillna(0.0)
+    per_seed["majority_success_per_seed_target_valid"] = (
+        (per_seed["success_count_valid"] > (per_seed["valid_repetitions"] / 2)).astype(int)
+    )
+    per_seed["mean_largest_component_fraction_per_seed_target_valid"] = per_seed["mean_largest_component_fraction_per_seed_target_valid"].fillna(0.0)
+    per_seed["mean_failed_p_gnp_per_seed_target_valid"] = per_seed["mean_failed_p_gnp_per_seed_target_valid"].fillna(0.0)
+    per_seed["mean_sector_size_per_seed_target_valid"] = per_seed["mean_sector_size_per_seed_target_valid"].fillna(0.0)
+    per_seed["connectivity_preservation_fraction_per_seed_target"] = per_seed["connectivity_preservation_fraction_per_seed_target"].fillna(0.0)
     return per_seed
 
 
@@ -589,9 +722,147 @@ def run_full(out_prefix: str) -> None:
     print(f"Wrote {per_seed_path}")
 
 
+def run_lcf_smoke(out_prefix: str) -> None:
+    rows: List[Dict[str, Any]] = []
+    max_target_edge = max(LCF_SMOKE_CONFIG["target_edge_counts"])
+    selected_seeds = find_reachable_seeds(max_target_edge, LCF_SMOKE_CONFIG["seeds"], LCF_SMOKE_CONFIG)
+    if len(selected_seeds) < LCF_SMOKE_CONFIG["seeds"]:
+        print(
+            f"Warning: only found {len(selected_seeds)} reachable lcf smoke seed(s) "
+            f"for max_target_edge={max_target_edge}."
+        )
+    if not selected_seeds:
+        raise RuntimeError(
+            f"No lcf smoke seeds found with original_edge_count >= {max_target_edge}."
+        )
+
+    for seed in selected_seeds:
+        world = World(
+            LCF_SMOKE_CONFIG["N"],
+            LCF_SMOKE_CONFIG["d"],
+            LCF_SMOKE_CONFIG["model_mode"],
+            LCF_SMOKE_CONFIG["epsilon_norm"],
+            seed,
+        )
+        sim = SimulatorWithNodes(
+            world=world,
+            relation_variant=LCF_SMOKE_CONFIG["relation_variant"],
+            alpha=LCF_SMOKE_CONFIG["alpha"],
+            threshold=LCF_SMOKE_CONFIG["threshold"],
+            beta=LCF_SMOKE_CONFIG["beta"],
+            lambda_val=LCF_SMOKE_CONFIG["lambda_val"],
+            baseline_count=LCF_SMOKE_CONFIG["baseline_count"],
+        )
+
+        for step in range(LCF_SMOKE_CONFIG["steps"]):
+            sim.mutate_and_step(LCF_SMOKE_CONFIG["mutation_rate"], step_seed=seed * 100000 + step)
+
+        cluster_nodes: Optional[Set[int]] = None
+        cluster_lifetime = 0
+        if sim.valid_size(sim.current_indices) and sim.lifetime > 20:
+            sim.deep_analysis(sim.current_indices, seed=seed * 99991 + LCF_SMOKE_CONFIG["steps"])
+            cluster_nodes = set(sim.current_indices)
+            cluster_lifetime = sim.lifetime
+        elif sim.best_sector_nodes is not None:
+            cluster_nodes = sim.best_sector_nodes
+            cluster_lifetime = sim.best_sector_lifetime
+
+        if not cluster_nodes:
+            continue
+
+        g_original = sim.build_graph(cluster_nodes)
+        original_edge_count = g_original.number_of_edges()
+        baseline_sim = SimulatorWithNodes(
+            world=world,
+            relation_variant=LCF_SMOKE_CONFIG["relation_variant"],
+            alpha=LCF_SMOKE_CONFIG["alpha"],
+            threshold=LCF_SMOKE_CONFIG["threshold"],
+            beta=LCF_SMOKE_CONFIG["beta"],
+            lambda_val=LCF_SMOKE_CONFIG["lambda_val"],
+            baseline_count=LCF_SMOKE_CONFIG["baseline_count"],
+        )
+
+        for target_edge_count in LCF_SMOKE_CONFIG["target_edge_counts"]:
+            for rep in range(LCF_SMOKE_CONFIG["repetitions_per_target"]):
+                rng = np.random.default_rng(seed * 100000 + target_edge_count * 1000 + rep)
+                subsampled, target_reached, target_connectivity_preserved, connectivity_preservation_reason, removal_attempts, removal_failures = lcf_constrained_edge_removal(
+                    g_original,
+                    target_edge_count,
+                    LCF_SMOKE_CONFIG["lcf_min_threshold"],
+                    rng,
+                    LCF_SMOKE_CONFIG["max_attempts_per_seed"],
+                )
+                actual_edge_count = subsampled.number_of_edges()
+                target_reachable = original_edge_count >= target_edge_count
+                target_reached_flag = target_reachable and actual_edge_count == target_edge_count
+                if target_reachable:
+                    reachability_reason = "reached" if target_reached_flag else "failed_to_reach"
+                else:
+                    reachability_reason = "unreachable_original_edge_count"
+
+                actual_lcf = largest_component_fraction(subsampled)
+                valid_lcf_matched = bool(target_reached_flag and target_connectivity_preserved)
+
+                metrics = analyze_graph(
+                    subsampled,
+                    world,
+                    cluster_lifetime,
+                    LCF_SMOKE_CONFIG["baseline_count"],
+                    analysis_seed=seed * 1000000 + target_edge_count * 100 + rep,
+                    baseline_sim=baseline_sim,
+                )
+                rows.append(
+                    {
+                        "model_mode": LCF_SMOKE_CONFIG["model_mode"],
+                        "relation_variant": LCF_SMOKE_CONFIG["relation_variant"],
+                        "beta": LCF_SMOKE_CONFIG["beta"],
+                        "seed": seed,
+                        "subsample_rep": rep,
+                        "target_edge_count": target_edge_count,
+                        "actual_edge_count": actual_edge_count,
+                        "original_edge_count": original_edge_count,
+                        "edge_removal_count": max(0, original_edge_count - actual_edge_count),
+                        "edge_removal_fraction": (
+                            float(original_edge_count - actual_edge_count) / original_edge_count
+                            if original_edge_count > 0
+                            else 0.0
+                        ),
+                        "subsampling_method": LCF_SMOKE_CONFIG["subsampling_method"],
+                        "target_reachable": bool(target_reachable),
+                        "target_reached": bool(target_reached_flag),
+                        "reachability_reason": reachability_reason,
+                        "target_connectivity_preserved": bool(target_connectivity_preserved),
+                        "connectivity_preservation_reason": connectivity_preservation_reason,
+                        "lcf_min_threshold": LCF_SMOKE_CONFIG["lcf_min_threshold"],
+                        "actual_largest_component_fraction": actual_lcf,
+                        "removal_attempts": removal_attempts,
+                        "removal_failures": removal_failures,
+                        "valid_lcf_matched": bool(valid_lcf_matched),
+                        "N": LCF_SMOKE_CONFIG["N"],
+                        "d": LCF_SMOKE_CONFIG["d"],
+                        "steps": LCF_SMOKE_CONFIG["steps"],
+                        "baseline_count": LCF_SMOKE_CONFIG["baseline_count"],
+                        "mutation_rate": LCF_SMOKE_CONFIG["mutation_rate"],
+                        **metrics,
+                    }
+                )
+
+    df = pd.DataFrame(rows)
+    os.makedirs("outputs", exist_ok=True)
+    raw_path = f"outputs/raw_{out_prefix}.csv"
+    summary_path = f"outputs/summary_{out_prefix}.csv"
+    per_seed_path = f"outputs/per_seed_{out_prefix}.csv"
+    df.to_csv(raw_path, index=False)
+    make_lcf_summary(df).to_csv(summary_path, index=False)
+    make_lcf_per_seed(df).to_csv(per_seed_path, index=False)
+    print(f"Wrote {raw_path}")
+    print(f"Wrote {summary_path}")
+    print(f"Wrote {per_seed_path}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=["smoke", "full"], default="smoke")
+    parser.add_argument("--mode", choices=["smoke", "full", "lcf_smoke"], default="smoke")
     parser.add_argument("--out-prefix", default="density_ablation_variant2")
     args = parser.parse_args()
 
@@ -599,6 +870,8 @@ def main() -> None:
         run_smoke(args.out_prefix)
     elif args.mode == "full":
         run_full(args.out_prefix)
+    elif args.mode == "lcf_smoke":
+        run_lcf_smoke(args.out_prefix)
     else:
         raise ValueError(f"Unsupported mode: {args.mode}")
 
