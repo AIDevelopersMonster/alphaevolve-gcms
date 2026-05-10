@@ -107,6 +107,18 @@ LCF_SMOKE_CONFIG = {
     "max_attempts_per_seed": 100,
 }
 
+LCF_FULL_CONFIG = {
+    **SMOKE_CONFIG,
+    "target_edge_counts": [25, 30, 35],
+    "seeds": 100,
+    "repetitions_per_target": 5,
+    "baseline_count": 100,
+    "subsampling_method": "greedy_non_bridge_removal_with_LCF_constraint",
+    "lcf_min_threshold": 0.85,
+    "max_attempts_per_seed": 100,
+    "max_seed_scan": 10000,
+}
+
 MIN_SECTOR_SIZE = 5
 MAX_SECTOR_SIZE = 60
 
@@ -420,7 +432,16 @@ def make_lcf_summary(df: pd.DataFrame) -> pd.DataFrame:
         valid_lcf_matched_rate=("valid_lcf_matched", "mean"),
         mean_removal_attempts=("removal_attempts", "mean"),
         mean_removal_failures=("removal_failures", "mean"),
+        failed_no_non_bridge_edges_count=("connectivity_preservation_reason", lambda x: (x == "failed_no_non_bridge_edges").sum()),
+        failed_max_attempts_count=("connectivity_preservation_reason", lambda x: (x == "failed_max_attempts").sum()),
+        failed_lcf_constraint_count=("connectivity_preservation_reason", lambda x: (x == "failed_lcf_constraint").sum()),
+        preserved_count=("connectivity_preservation_reason", lambda x: (x == "preserved").sum()),
     ).reset_index()
+    summary["failed_no_non_bridge_edges_rate"] = summary["failed_no_non_bridge_edges_count"] / summary["attempted_runs_all"]
+    summary["failed_max_attempts_rate"] = summary["failed_max_attempts_count"] / summary["attempted_runs_all"]
+    summary["failed_lcf_constraint_rate"] = summary["failed_lcf_constraint_count"] / summary["attempted_runs_all"]
+    summary["preserved_rate"] = summary["preserved_count"] / summary["attempted_runs_all"]
+
     valid_df = df[df["valid_lcf_matched"]]
     valid = valid_df.groupby(keys).agg(
         structure_success_rate_valid=("structure_success", "mean"),
@@ -458,6 +479,10 @@ def make_lcf_per_seed(df: pd.DataFrame) -> pd.DataFrame:
     keys = ["target_edge_count", "seed"]
     all_group = df.groupby(keys).agg(
         connectivity_preservation_fraction_per_seed_target=("target_connectivity_preserved", "mean"),
+        failed_no_non_bridge_edges_count=("connectivity_preservation_reason", lambda x: (x == "failed_no_non_bridge_edges").sum()),
+        failed_max_attempts_count=("connectivity_preservation_reason", lambda x: (x == "failed_max_attempts").sum()),
+        failed_lcf_constraint_count=("connectivity_preservation_reason", lambda x: (x == "failed_lcf_constraint").sum()),
+        preserved_count=("connectivity_preservation_reason", lambda x: (x == "preserved").sum()),
     )
     valid_group = df[df["valid_lcf_matched"]].groupby(keys).agg(
         valid_repetitions=("valid_lcf_matched", "count"),
@@ -478,6 +503,10 @@ def make_lcf_per_seed(df: pd.DataFrame) -> pd.DataFrame:
     per_seed["mean_failed_p_gnp_per_seed_target_valid"] = per_seed["mean_failed_p_gnp_per_seed_target_valid"].fillna(0.0)
     per_seed["mean_sector_size_per_seed_target_valid"] = per_seed["mean_sector_size_per_seed_target_valid"].fillna(0.0)
     per_seed["connectivity_preservation_fraction_per_seed_target"] = per_seed["connectivity_preservation_fraction_per_seed_target"].fillna(0.0)
+    per_seed["failed_no_non_bridge_edges_count"] = per_seed["failed_no_non_bridge_edges_count"].fillna(0).astype(int)
+    per_seed["failed_max_attempts_count"] = per_seed["failed_max_attempts_count"].fillna(0).astype(int)
+    per_seed["failed_lcf_constraint_count"] = per_seed["failed_lcf_constraint_count"].fillna(0).astype(int)
+    per_seed["preserved_count"] = per_seed["preserved_count"].fillna(0).astype(int)
     return per_seed
 
 
@@ -722,45 +751,45 @@ def run_full(out_prefix: str) -> None:
     print(f"Wrote {per_seed_path}")
 
 
-def run_lcf_smoke(out_prefix: str) -> None:
+def run_lcf_ablation(config: Dict[str, Any], out_prefix: str) -> None:
     rows: List[Dict[str, Any]] = []
-    max_target_edge = max(LCF_SMOKE_CONFIG["target_edge_counts"])
-    selected_seeds = find_reachable_seeds(max_target_edge, LCF_SMOKE_CONFIG["seeds"], LCF_SMOKE_CONFIG)
-    if len(selected_seeds) < LCF_SMOKE_CONFIG["seeds"]:
+    max_target_edge = max(config["target_edge_counts"])
+    selected_seeds = find_reachable_seeds(max_target_edge, config["seeds"], config)
+    if len(selected_seeds) < config["seeds"]:
         print(
-            f"Warning: only found {len(selected_seeds)} reachable lcf smoke seed(s) "
+            f"Warning: only found {len(selected_seeds)} reachable {config['subsampling_method']} seed(s) "
             f"for max_target_edge={max_target_edge}."
         )
     if not selected_seeds:
         raise RuntimeError(
-            f"No lcf smoke seeds found with original_edge_count >= {max_target_edge}."
+            f"No {config['subsampling_method']} seeds found with original_edge_count >= {max_target_edge}."
         )
 
     for seed in selected_seeds:
         world = World(
-            LCF_SMOKE_CONFIG["N"],
-            LCF_SMOKE_CONFIG["d"],
-            LCF_SMOKE_CONFIG["model_mode"],
-            LCF_SMOKE_CONFIG["epsilon_norm"],
+            config["N"],
+            config["d"],
+            config["model_mode"],
+            config["epsilon_norm"],
             seed,
         )
         sim = SimulatorWithNodes(
             world=world,
-            relation_variant=LCF_SMOKE_CONFIG["relation_variant"],
-            alpha=LCF_SMOKE_CONFIG["alpha"],
-            threshold=LCF_SMOKE_CONFIG["threshold"],
-            beta=LCF_SMOKE_CONFIG["beta"],
-            lambda_val=LCF_SMOKE_CONFIG["lambda_val"],
-            baseline_count=LCF_SMOKE_CONFIG["baseline_count"],
+            relation_variant=config["relation_variant"],
+            alpha=config["alpha"],
+            threshold=config["threshold"],
+            beta=config["beta"],
+            lambda_val=config["lambda_val"],
+            baseline_count=config["baseline_count"],
         )
 
-        for step in range(LCF_SMOKE_CONFIG["steps"]):
-            sim.mutate_and_step(LCF_SMOKE_CONFIG["mutation_rate"], step_seed=seed * 100000 + step)
+        for step in range(config["steps"]):
+            sim.mutate_and_step(config["mutation_rate"], step_seed=seed * 100000 + step)
 
         cluster_nodes: Optional[Set[int]] = None
         cluster_lifetime = 0
         if sim.valid_size(sim.current_indices) and sim.lifetime > 20:
-            sim.deep_analysis(sim.current_indices, seed=seed * 99991 + LCF_SMOKE_CONFIG["steps"])
+            sim.deep_analysis(sim.current_indices, seed=seed * 99991 + config["steps"])
             cluster_nodes = set(sim.current_indices)
             cluster_lifetime = sim.lifetime
         elif sim.best_sector_nodes is not None:
@@ -774,23 +803,23 @@ def run_lcf_smoke(out_prefix: str) -> None:
         original_edge_count = g_original.number_of_edges()
         baseline_sim = SimulatorWithNodes(
             world=world,
-            relation_variant=LCF_SMOKE_CONFIG["relation_variant"],
-            alpha=LCF_SMOKE_CONFIG["alpha"],
-            threshold=LCF_SMOKE_CONFIG["threshold"],
-            beta=LCF_SMOKE_CONFIG["beta"],
-            lambda_val=LCF_SMOKE_CONFIG["lambda_val"],
-            baseline_count=LCF_SMOKE_CONFIG["baseline_count"],
+            relation_variant=config["relation_variant"],
+            alpha=config["alpha"],
+            threshold=config["threshold"],
+            beta=config["beta"],
+            lambda_val=config["lambda_val"],
+            baseline_count=config["baseline_count"],
         )
 
-        for target_edge_count in LCF_SMOKE_CONFIG["target_edge_counts"]:
-            for rep in range(LCF_SMOKE_CONFIG["repetitions_per_target"]):
+        for target_edge_count in config["target_edge_counts"]:
+            for rep in range(config["repetitions_per_target"]):
                 rng = np.random.default_rng(seed * 100000 + target_edge_count * 1000 + rep)
                 subsampled, target_reached, target_connectivity_preserved, connectivity_preservation_reason, removal_attempts, removal_failures = lcf_constrained_edge_removal(
                     g_original,
                     target_edge_count,
-                    LCF_SMOKE_CONFIG["lcf_min_threshold"],
+                    config["lcf_min_threshold"],
                     rng,
-                    LCF_SMOKE_CONFIG["max_attempts_per_seed"],
+                    config["max_attempts_per_seed"],
                 )
                 actual_edge_count = subsampled.number_of_edges()
                 target_reachable = original_edge_count >= target_edge_count
@@ -807,15 +836,15 @@ def run_lcf_smoke(out_prefix: str) -> None:
                     subsampled,
                     world,
                     cluster_lifetime,
-                    LCF_SMOKE_CONFIG["baseline_count"],
+                    config["baseline_count"],
                     analysis_seed=seed * 1000000 + target_edge_count * 100 + rep,
                     baseline_sim=baseline_sim,
                 )
                 rows.append(
                     {
-                        "model_mode": LCF_SMOKE_CONFIG["model_mode"],
-                        "relation_variant": LCF_SMOKE_CONFIG["relation_variant"],
-                        "beta": LCF_SMOKE_CONFIG["beta"],
+                        "model_mode": config["model_mode"],
+                        "relation_variant": config["relation_variant"],
+                        "beta": config["beta"],
                         "seed": seed,
                         "subsample_rep": rep,
                         "target_edge_count": target_edge_count,
@@ -827,22 +856,22 @@ def run_lcf_smoke(out_prefix: str) -> None:
                             if original_edge_count > 0
                             else 0.0
                         ),
-                        "subsampling_method": LCF_SMOKE_CONFIG["subsampling_method"],
+                        "subsampling_method": config["subsampling_method"],
                         "target_reachable": bool(target_reachable),
                         "target_reached": bool(target_reached_flag),
                         "reachability_reason": reachability_reason,
                         "target_connectivity_preserved": bool(target_connectivity_preserved),
                         "connectivity_preservation_reason": connectivity_preservation_reason,
-                        "lcf_min_threshold": LCF_SMOKE_CONFIG["lcf_min_threshold"],
+                        "lcf_min_threshold": config["lcf_min_threshold"],
                         "actual_largest_component_fraction": actual_lcf,
                         "removal_attempts": removal_attempts,
                         "removal_failures": removal_failures,
                         "valid_lcf_matched": bool(valid_lcf_matched),
-                        "N": LCF_SMOKE_CONFIG["N"],
-                        "d": LCF_SMOKE_CONFIG["d"],
-                        "steps": LCF_SMOKE_CONFIG["steps"],
-                        "baseline_count": LCF_SMOKE_CONFIG["baseline_count"],
-                        "mutation_rate": LCF_SMOKE_CONFIG["mutation_rate"],
+                        "N": config["N"],
+                        "d": config["d"],
+                        "steps": config["steps"],
+                        "baseline_count": config["baseline_count"],
+                        "mutation_rate": config["mutation_rate"],
                         **metrics,
                     }
                 )
@@ -852,17 +881,30 @@ def run_lcf_smoke(out_prefix: str) -> None:
     raw_path = f"outputs/raw_{out_prefix}.csv"
     summary_path = f"outputs/summary_{out_prefix}.csv"
     per_seed_path = f"outputs/per_seed_{out_prefix}.csv"
+    reason_path = f"outputs/reason_counts_{out_prefix}.csv"
     df.to_csv(raw_path, index=False)
     make_lcf_summary(df).to_csv(summary_path, index=False)
     make_lcf_per_seed(df).to_csv(per_seed_path, index=False)
+    df[["subsampling_method", "target_edge_count", "connectivity_preservation_reason"]].groupby(
+        ["subsampling_method", "target_edge_count", "connectivity_preservation_reason"]
+    ).size().reset_index(name="count").to_csv(reason_path, index=False)
     print(f"Wrote {raw_path}")
     print(f"Wrote {summary_path}")
     print(f"Wrote {per_seed_path}")
+    print(f"Wrote {reason_path}")
+
+
+def run_lcf_smoke(out_prefix: str) -> None:
+    run_lcf_ablation(LCF_SMOKE_CONFIG, out_prefix)
+
+
+def run_lcf_full(out_prefix: str) -> None:
+    run_lcf_ablation(LCF_FULL_CONFIG, out_prefix)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=["smoke", "full", "lcf_smoke"], default="smoke")
+    parser.add_argument("--mode", choices=["smoke", "full", "lcf_smoke", "lcf_full"], default="smoke")
     parser.add_argument("--out-prefix", default="density_ablation_variant2")
     args = parser.parse_args()
 
@@ -872,6 +914,8 @@ def main() -> None:
         run_full(args.out_prefix)
     elif args.mode == "lcf_smoke":
         run_lcf_smoke(args.out_prefix)
+    elif args.mode == "lcf_full":
+        run_lcf_full(args.out_prefix)
     else:
         raise ValueError(f"Unsupported mode: {args.mode}")
 
