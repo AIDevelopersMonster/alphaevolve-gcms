@@ -1,21 +1,114 @@
 #!/usr/bin/env python3
-"""Lite deterministic auditor for GCMS raw CSV outputs.
+"""
+GCMS-D0 TOOL PASSPORT
+=====================
 
-This tool is intentionally small. It recomputes the basic rates and effect
-sizes from a raw GCMS output CSV so that key reported numbers do not drift
-between conversations.
+Project:
+    AlphaEvolve-GCMS / GCMS-D0
 
-Example:
-    python tools/audit_gcms_lite.py \
-        --raw outputs/raw_v010_beta_grid_variant2.csv \
-        --out-prefix v010_beta_grid_variant2_lite
+Repository:
+    AIDevelopersMonster/alphaevolve-gcms
+
+Script:
+    tools/audit_gcms_lite.py
+
+Script type:
+    analysis tool / skill prototype
+
+Status:
+    active lite auditor; exploratory processing tool
+
+Purpose:
+    Recompute stable grouped success rates, compensation effects,
+    density/edge-count/degree summaries, and a simple effect-vs-beta chart
+    directly from a GCMS raw CSV.
+
+Project context:
+    This tool is the first deterministic prototype for the future
+    gcms-result-auditor skill. It exists to stop core percentages and
+    effect values from drifting between conversations or interpretations.
+
+Workflow:
+    gcms-result-auditor-lite
+
+Primary question:
+    Are the reported structure_success percentages and compensation effects
+    reproducible directly from the raw CSV without relying on conversational
+    recalculation?
+
+Document basis:
+    - docs/SCRIPT_HEADER_STANDARD.md
+    - docs/EXPERIMENT_DESIGN_PROTOCOL.md
+    - docs/AGENT_INTERACTION_PROTOCOL.md
+    - skills/proposals/gcms-result-auditor/LITE_TEST_PLAN.md
+    - docs/reviews/v010_fine_beta_experiment_review.md
+
+Pre-execution review:
+    Reviewer:
+        Delta-D0 internal review; Qwen methodological concerns inform
+        thresholds and interpretation blockers.
+    Review document:
+        docs/reviews/v010_fine_beta_experiment_review.md
+    Review status:
+        applicable as processing/audit support; not a final statistical review.
+
+Author / generator:
+    Human resolution:
+        Алексей Малачевский
+    AI-side methodological role:
+        Delta-D0-000d7f6f
+    Code author / generator:
+        ChatGPT/Delta-D0
+
+Executor:
+    Aleksey local machine / Codex VS Code / CLI
+
+Allowed actions:
+    Read raw GCMS CSV files and write lite audit outputs under outputs/.
+
+Forbidden actions:
+    Do not modify experiment code.
+    Do not modify raw CSV inputs.
+    Do not commit generated outputs by default.
+    Do not claim physical theory or final confirmation from this tool.
+
+Inputs:
+    --raw <path to raw CSV>
+    --out-prefix <output prefix>
+    --relation-variant <optional integer filter>
+
+Outputs:
+    outputs/<prefix>_summary.csv
+    outputs/<prefix>_effect.csv
+    outputs/<prefix>_effect.png
+    outputs/<prefix>_report.md
+
+Output policy:
+    Generated outputs are local artifacts unless explicitly archived.
+    Interpreted results belong in docs/results/ after audit and review.
+
+Verification:
+    python -m py_compile tools/audit_gcms_lite.py
+    python tools/audit_gcms_lite.py --raw outputs/raw_v010_beta_grid_variant2.csv --out-prefix v010_beta_grid_variant2_lite
+
+Known limitations:
+    Lite auditor does not compute full confidence intervals, paired McNemar
+    tests, connectivity fragmentation metrics, or failure-mode decomposition.
+    It is descriptive processing, not a complete statistical review.
+
+Interpretation policy:
+    The tool provides deterministic descriptive processing.
+    Full scientific interpretation still requires statistical audit, collapse
+    checks, and external review before claims are updated.
+
+Last updated:
+    2026-05-10
 """
 
 from __future__ import annotations
 
 import argparse
 import math
-import os
 from pathlib import Path
 from typing import Iterable
 
@@ -80,12 +173,6 @@ def safe_mean_degree(edge_count: float, sector_size: float) -> float:
     if pd.isna(edge_count) or pd.isna(sector_size) or sector_size <= 0:
         return 0.0
     return 2.0 * float(edge_count) / float(sector_size)
-
-
-def format_float(value: float, digits: int = 6) -> str:
-    if pd.isna(value):
-        return "nan"
-    return f"{value:.{digits}f}"
 
 
 def mode_sort_key(mode: str) -> tuple[int, str]:
