@@ -2,7 +2,7 @@
 
 **Статус:** рабочий документ  
 **Проект:** GCMS-D0  
-**Связанный документ:** `docs/AI_INTERACTION_SKILL_PART1.md`
+**Связанный документ:** `docs/skills/AI_INTERACTION_SKILL_PART1.md`
 
 ---
 
