@@ -17,7 +17,7 @@ Script type:
 
 Status:
     smoke mode implemented
-    full mode: placeholder
+    full mode implemented
 
 Purpose:
     Audit the native topology produced by compensated and uncompensated 
@@ -320,68 +320,207 @@ def analyze_graph(
     }
 
 
-def run_smoke(out_prefix: str) -> None:
-    """Run smoke audit: 2 model_modes × 2 seeds = 4 rows."""
+def get_threshold_candidates(values: np.ndarray, max_candidates: int = 5) -> List[float]:
+    unique_vals = sorted(np.unique(values))
+    if len(unique_vals) <= max_candidates:
+        return unique_vals
+    positions = [0, len(unique_vals) // 4, len(unique_vals) // 2, (3 * len(unique_vals)) // 4, len(unique_vals) - 1]
+    return sorted({unique_vals[pos] for pos in positions})
+
+
+def make_summary(df: pd.DataFrame) -> pd.DataFrame:
+    summary_keys = ["model_mode", "relation_variant", "beta"]
+    summary = df.groupby(summary_keys).agg(
+        runs=("seed", "count"),
+        structure_success_rate=("structure_success", "mean"),
+        mean_edge_count=("edge_count", "mean"),
+        mean_density=("density", "mean"),
+        mean_n_components=("n_components", "mean"),
+        mean_largest_component_fraction=("largest_component_fraction", "mean"),
+        mean_bridge_count=("bridge_count", "mean"),
+        mean_bridge_fraction=("bridge_fraction", "mean"),
+        mean_non_bridge_edge_count=("non_bridge_edge_count", "mean"),
+        mean_cycle_rank=("cycle_rank", "mean"),
+        mean_largest_component_cycle_rank=("largest_component_cycle_rank", "mean"),
+        mean_mean_degree=("mean_degree", "mean"),
+        mean_degree_variance=("degree_variance", "mean"),
+        mean_max_degree=("max_degree", "mean"),
+        mean_sector_size=("sector_size", "mean"),
+        mean_failed_p_gnp=("failed_p_gnp", "mean"),
+        mean_failed_p_dp=("failed_p_dp", "mean"),
+        mean_dp_valid=("dp_valid", "mean"),
+        mean_dp_swap_success_rate=("dp_swap_success_rate", "mean"),
+        mean_global_error=("global_error", "mean"),
+        mean_global_vector_norm=("global_vector_norm", "mean"),
+        mean_sector_chi=("sector_chi", "mean"),
+    ).reset_index()
+
+    for col in ["non_bridge_edge_count", "cycle_rank", "bridge_fraction"]:
+        quantiles = df.groupby(summary_keys)[col].quantile([0.25, 0.50, 0.75]).unstack()
+        quantiles.columns = [f"q{int(c*100)}_{col}" for c in quantiles.columns]
+        summary = summary.merge(quantiles, left_on=summary_keys, right_index=True)
+
+    return summary
+
+
+def make_per_seed(df: pd.DataFrame) -> pd.DataFrame:
+    keys = ["seed"]
+    model_values = {"compensated": df[df["model_mode"] == "compensated"].set_index("seed"),
+                    "uncompensated": df[df["model_mode"] == "uncompensated"].set_index("seed")}
+    cols = [
+        "edge_count",
+        "bridge_fraction",
+        "non_bridge_edge_count",
+        "cycle_rank",
+        "largest_component_fraction",
+        "structure_success",
+        "failed_p_gnp",
+        "failed_p_dp",
+        "density",
+        "bridge_count",
+        "largest_component_cycle_rank",
+        "sector_size",
+    ]
+    bool_cols = {"structure_success", "failed_p_gnp", "failed_p_dp"}
+
     rows: List[Dict[str, Any]] = []
-    
-    for model_mode in SMOKE_CONFIG["model_modes"]:
-        for seed in range(SMOKE_CONFIG["seeds"]):
-            # Initialize world
+    for seed in sorted(df["seed"].unique()):
+        row: Dict[str, Any] = {"seed": seed}
+        for col in cols:
+            val_c = model_values["compensated"].loc[seed, col] if seed in model_values["compensated"].index else 0
+            val_u = model_values["uncompensated"].loc[seed, col] if seed in model_values["uncompensated"].index else 0
+            if col in bool_cols:
+                val_c = int(bool(val_c))
+                val_u = int(bool(val_u))
+            row[f"{col}_compensated"] = val_c
+            row[f"{col}_uncompensated"] = val_u
+            row[f"delta_{col}"] = val_c - val_u
+        rows.append(row)
+
+    return pd.DataFrame(rows)
+
+
+def make_thresholds(df: pd.DataFrame) -> pd.DataFrame:
+    threshold_specs = [
+        ("non_bridge_edge_count", "non_bridge_edge_count", lambda d, v: d[d["non_bridge_edge_count"] >= v], lambda d, v: d[d["non_bridge_edge_count"] < v]),
+        ("cycle_rank", "cycle_rank", lambda d, v: d[d["cycle_rank"] >= v], lambda d, v: d[d["cycle_rank"] < v]),
+        ("largest_component_cycle_rank", "largest_component_cycle_rank", lambda d, v: d[d["largest_component_cycle_rank"] >= v], lambda d, v: d[d["largest_component_cycle_rank"] < v]),
+        ("edge_count", "edge_count", lambda d, v: d[d["edge_count"] >= v], lambda d, v: d[d["edge_count"] < v]),
+        ("bridge_fraction_le", "bridge_fraction", lambda d, v: d[d["bridge_fraction"] <= v], lambda d, v: d[d["bridge_fraction"] > v]),
+    ]
+    threshold_rows: List[Dict[str, Any]] = []
+
+    for threshold_type, col, above_fn, below_fn in threshold_specs:
+        values = df[col].dropna().to_numpy()
+        if len(values) == 0:
+            continue
+        for threshold_value in get_threshold_candidates(values):
+            above = above_fn(df, threshold_value)
+            below = below_fn(df, threshold_value)
+            threshold_rows.append({
+                "threshold_type": threshold_type,
+                "threshold_value": threshold_value,
+                "rows_above_threshold": len(above),
+                "structure_success_rate_above_threshold": above["structure_success"].mean() if len(above) > 0 else 0,
+                "rows_below_threshold": len(below),
+                "structure_success_rate_below_threshold": below["structure_success"].mean() if len(below) > 0 else 0,
+            })
+
+    return pd.DataFrame(threshold_rows)
+
+
+def make_correlations(df: pd.DataFrame) -> pd.DataFrame:
+    features = [
+        "edge_count",
+        "density",
+        "bridge_fraction",
+        "non_bridge_edge_count",
+        "cycle_rank",
+        "largest_component_cycle_rank",
+        "mean_degree",
+        "degree_variance",
+        "max_degree",
+        "sector_size",
+    ]
+    targets = ["structure_success", "failed_p_gnp", "failed_p_dp"]
+    rows: List[Dict[str, Any]] = []
+
+    for feature in features:
+        if feature not in df.columns:
+            continue
+        x = df[feature].to_numpy(dtype=float)
+        for target in targets:
+            y = df[target].to_numpy(dtype=float)
+            if len(x) < 2 or len(y) < 2:
+                continue
+            try:
+                corr = np.corrcoef(x, y)[0, 1]
+            except Exception:
+                corr = 0.0
+            rows.append({
+                "feature": feature,
+                "method": "pearson",
+                "target": target,
+                "correlation_with_target": float(corr),
+                "n_rows": int(len(df)),
+            })
+    return pd.DataFrame(rows)
+
+
+def run_audit(config: Dict[str, Any], out_prefix: str) -> None:
+    rows: List[Dict[str, Any]] = []
+
+    for model_mode in config["model_modes"]:
+        for seed in range(config["seeds"]):
             world = World(
-                SMOKE_CONFIG["N"],
-                SMOKE_CONFIG["d"],
+                config["N"],
+                config["d"],
                 model_mode,
-                SMOKE_CONFIG["epsilon_norm"],
+                config["epsilon_norm"],
                 seed,
             )
-            
-            # Initialize simulator
             sim = SimulatorWithNodes(
                 world=world,
-                relation_variant=SMOKE_CONFIG["relation_variant"],
-                alpha=SMOKE_CONFIG["alpha"],
-                threshold=SMOKE_CONFIG["threshold"],
-                beta=SMOKE_CONFIG["beta"],
-                lambda_val=SMOKE_CONFIG["lambda_val"],
-                baseline_count=SMOKE_CONFIG["baseline_count"],
+                relation_variant=config["relation_variant"],
+                alpha=config["alpha"],
+                threshold=config["threshold"],
+                beta=config["beta"],
+                lambda_val=config["lambda_val"],
+                baseline_count=config["baseline_count"],
             )
-            
-            # Run simulation
-            for step in range(SMOKE_CONFIG["steps"]):
-                sim.mutate_and_step(
-                    SMOKE_CONFIG["mutation_rate"],
-                    step_seed=seed * 100000 + step
-                )
-            
-            # Determine cluster nodes
+
+            for step in range(config["steps"]):
+                sim.mutate_and_step(config["mutation_rate"], step_seed=seed * 100000 + step)
+
+            # Compute diagnostics
+            global_error = world.global_error()
+            global_vector_norm = np.linalg.norm(world.global_vector())
+            compensation_valid = global_error < 1e-12
+
             cluster_nodes: Optional[Set[int]] = None
             cluster_lifetime = 0
-            
             if sim.valid_size(sim.current_indices) and sim.lifetime > 20:
-                sim.deep_analysis(
-                    sim.current_indices,
-                    seed=seed * 99991 + SMOKE_CONFIG["steps"]
-                )
+                sim.deep_analysis(sim.current_indices, seed=seed * 99991 + config["steps"])
                 cluster_nodes = set(sim.current_indices)
                 cluster_lifetime = sim.lifetime
             elif sim.best_sector_nodes is not None:
                 cluster_nodes = sim.best_sector_nodes
                 cluster_lifetime = sim.best_sector_lifetime
-            
-            # If no cluster found, record with zeros
+
             if not cluster_nodes:
-                rows.append({
+                sector_chi = 0.0
+                row = {
                     "model_mode": model_mode,
-                    "relation_variant": SMOKE_CONFIG["relation_variant"],
-                    "beta": SMOKE_CONFIG["beta"],
+                    "relation_variant": config["relation_variant"],
+                    "beta": config["beta"],
                     "seed": seed,
-                    "N": SMOKE_CONFIG["N"],
-                    "d": SMOKE_CONFIG["d"],
-                    "steps": SMOKE_CONFIG["steps"],
-                    "baseline_count": SMOKE_CONFIG["baseline_count"],
-                    "mutation_rate": SMOKE_CONFIG["mutation_rate"],
-                    "sector_size": 0,
+                    "N": config["N"],
+                    "d": config["d"],
+                    "steps": config["steps"],
+                    "baseline_count": config["baseline_count"],
+                    "mutation_rate": config["mutation_rate"],
                     "lifetime": 0,
+                    "sector_size": 0,
                     "edge_count": 0,
                     "density": 0.0,
                     "n_components": 0,
@@ -412,179 +551,89 @@ def run_smoke(out_prefix: str) -> None:
                     "failed_dp_valid": True,
                     "failed_lifetime": False,
                     "failed_sector_size": True,
-                })
+                    "global_error": global_error,
+                    "global_vector_norm": global_vector_norm,
+                    "compensation_valid": compensation_valid,
+                    "sector_chi": sector_chi,
+                }
+                rows.append(row)
                 continue
-            
-            # Build graph from cluster nodes (NATIVE, NO ALTERATION)
+
             g = sim.build_graph(cluster_nodes)
-            
-            # Compute topology metrics on native graph
             topo_metrics = compute_topology_metrics(g)
-            
-            # Create baseline simulator for structure analysis
             baseline_sim = SimulatorWithNodes(
                 world=world,
-                relation_variant=SMOKE_CONFIG["relation_variant"],
-                alpha=SMOKE_CONFIG["alpha"],
-                threshold=SMOKE_CONFIG["threshold"],
-                beta=SMOKE_CONFIG["beta"],
-                lambda_val=SMOKE_CONFIG["lambda_val"],
-                baseline_count=SMOKE_CONFIG["baseline_count"],
+                relation_variant=config["relation_variant"],
+                alpha=config["alpha"],
+                threshold=config["threshold"],
+                beta=config["beta"],
+                lambda_val=config["lambda_val"],
+                baseline_count=config["baseline_count"],
             )
-            
-            # Analyze for structure success
             structure_metrics = analyze_graph(
                 g,
                 world,
                 cluster_lifetime,
-                SMOKE_CONFIG["baseline_count"],
+                config["baseline_count"],
                 analysis_seed=seed * 1000000,
                 baseline_sim=baseline_sim,
             )
-            
-            # Combine row
+            sector_chi = chi_for_nodes(world, cluster_nodes)
             row = {
                 "model_mode": model_mode,
-                "relation_variant": SMOKE_CONFIG["relation_variant"],
-                "beta": SMOKE_CONFIG["beta"],
+                "relation_variant": config["relation_variant"],
+                "beta": config["beta"],
                 "seed": seed,
-                "N": SMOKE_CONFIG["N"],
-                "d": SMOKE_CONFIG["d"],
-                "steps": SMOKE_CONFIG["steps"],
-                "baseline_count": SMOKE_CONFIG["baseline_count"],
-                "mutation_rate": SMOKE_CONFIG["mutation_rate"],
+                "N": config["N"],
+                "d": config["d"],
+                "steps": config["steps"],
+                "baseline_count": config["baseline_count"],
+                "mutation_rate": config["mutation_rate"],
                 "lifetime": cluster_lifetime,
                 **topo_metrics,
                 **structure_metrics,
+                "global_error": global_error,
+                "global_vector_norm": global_vector_norm,
+                "compensation_valid": compensation_valid,
+                "sector_chi": sector_chi,
             }
             rows.append(row)
-    
-    # Write outputs
+
     df = pd.DataFrame(rows)
     os.makedirs("outputs", exist_ok=True)
-    
+
     raw_path = f"outputs/raw_{out_prefix}.csv"
     df.to_csv(raw_path, index=False)
     print(f"Wrote {raw_path}")
-    
-    # Summary: group by model_mode, relation_variant, beta
-    summary_keys = ["model_mode", "relation_variant", "beta"]
-    summary = df.groupby(summary_keys).agg({
-        "seed": "count",
-        "structure_success": "mean",
-        "edge_count": "mean",
-        "density": "mean",
-        "n_components": "mean",
-        "largest_component_fraction": "mean",
-        "bridge_count": "mean",
-        "bridge_fraction": "mean",
-        "non_bridge_edge_count": "mean",
-        "cycle_rank": "mean",
-        "largest_component_cycle_rank": "mean",
-        "mean_degree": "mean",
-        "degree_variance": "mean",
-        "max_degree": "mean",
-        "sector_size": "mean",
-        "failed_p_gnp": "mean",
-        "failed_p_dp": "mean",
-        "dp_valid": "mean",
-        "dp_swap_success_rate": "mean",
-    }).rename(columns={"seed": "runs"}).reset_index()
-    
-    # Add quantiles
-    for col in ["non_bridge_edge_count", "cycle_rank", "bridge_fraction"]:
-        quantiles = df.groupby(summary_keys)[col].quantile([0.25, 0.50, 0.75]).unstack()
-        quantiles.columns = [f"q{int(c*100)}_{col}" for c in quantiles.columns]
-        summary = summary.merge(quantiles, left_on=summary_keys, right_index=True)
-    
+
+    summary = make_summary(df)
     summary_path = f"outputs/summary_{out_prefix}.csv"
     summary.to_csv(summary_path, index=False)
     print(f"Wrote {summary_path}")
-    
-    # Per-seed: pair compensated vs uncompensated by seed
-    compensated = df[df["model_mode"] == "compensated"].set_index("seed")
-    uncompensated = df[df["model_mode"] == "uncompensated"].set_index("seed")
-    
-    per_seed_rows = []
-    for seed in sorted(set(df["seed"])):
-        row_c = compensated.loc[seed] if seed in compensated.index else None
-        row_u = uncompensated.loc[seed] if seed in uncompensated.index else None
-        
-        per_seed_row = {"seed": seed}
-        
-        # Pair comparison columns
-        bool_columns = {"structure_success", "failed_p_gnp", "failed_p_dp"}
-        for col in ["edge_count", "bridge_fraction", "non_bridge_edge_count", 
-                    "cycle_rank", "largest_component_fraction", "structure_success",
-                    "failed_p_gnp", "failed_p_dp"]:
-            val_c = row_c[col] if row_c is not None else 0
-            val_u = row_u[col] if row_u is not None else 0
-            if col in bool_columns:
-                val_c = int(bool(val_c))
-                val_u = int(bool(val_u))
-            per_seed_row[f"{col}_compensated"] = val_c
-            per_seed_row[f"{col}_uncompensated"] = val_u
-            per_seed_row[f"delta_{col}"] = val_c - val_u
-        
-        per_seed_rows.append(per_seed_row)
-    
-    per_seed_df = pd.DataFrame(per_seed_rows)
+
+    per_seed_df = make_per_seed(df)
     per_seed_path = f"outputs/per_seed_{out_prefix}.csv"
     per_seed_df.to_csv(per_seed_path, index=False)
     print(f"Wrote {per_seed_path}")
-    
-    # Thresholds: simple threshold analysis
-    threshold_rows = []
-    for threshold_col in ["non_bridge_edge_count", "cycle_rank"]:
-        unique_vals = sorted(df[threshold_col].dropna().unique())
-        # Use a few simple thresholds
-        test_thresholds = unique_vals[::max(1, len(unique_vals) // 3)]
-        if not test_thresholds:
-            test_thresholds = [0]
-        
-        for threshold_val in test_thresholds:
-            above = df[df[threshold_col] >= threshold_val]
-            below = df[df[threshold_col] < threshold_val]
-            
-            threshold_rows.append({
-                "threshold_type": threshold_col,
-                "threshold_value": threshold_val,
-                "rows_above_threshold": len(above),
-                "structure_success_rate_above_threshold": above["structure_success"].mean() if len(above) > 0 else 0,
-                "rows_below_threshold": len(below),
-                "structure_success_rate_below_threshold": below["structure_success"].mean() if len(below) > 0 else 0,
-            })
-    
-    # Bridge fraction thresholds (reverse: lower is better typically)
-    unique_bridge_fracs = sorted(df["bridge_fraction"].dropna().unique())
-    test_bridge_fracs = unique_bridge_fracs[::max(1, len(unique_bridge_fracs) // 3)]
-    if not test_bridge_fracs:
-        test_bridge_fracs = [0]
-    
-    for threshold_val in test_bridge_fracs:
-        below = df[df["bridge_fraction"] <= threshold_val]  # Note: <= for low bridge fraction
-        above = df[df["bridge_fraction"] > threshold_val]
-        
-        threshold_rows.append({
-            "threshold_type": "bridge_fraction_le",
-            "threshold_value": threshold_val,
-            "rows_above_threshold": len(below),
-            "structure_success_rate_above_threshold": below["structure_success"].mean() if len(below) > 0 else 0,
-            "rows_below_threshold": len(above),
-            "structure_success_rate_below_threshold": above["structure_success"].mean() if len(above) > 0 else 0,
-        })
-    
-    thresholds_df = pd.DataFrame(threshold_rows)
+
+    thresholds_df = make_thresholds(df)
     thresholds_path = f"outputs/thresholds_{out_prefix}.csv"
     thresholds_df.to_csv(thresholds_path, index=False)
     print(f"Wrote {thresholds_path}")
 
+    correlations_df = make_correlations(df)
+    if not correlations_df.empty:
+        correlations_path = f"outputs/correlations_{out_prefix}.csv"
+        correlations_df.to_csv(correlations_path, index=False)
+        print(f"Wrote {correlations_path}")
+
+
+def run_smoke(out_prefix: str) -> None:
+    run_audit(SMOKE_CONFIG, out_prefix)
+
 
 def run_full(out_prefix: str) -> None:
-    """Full mode: not implemented."""
-    raise NotImplementedError(
-        "Full audit mode is not implemented. Use --mode smoke for smoke audit."
-    )
+    run_audit(FULL_CONFIG, out_prefix)
 
 
 def main() -> None:
@@ -595,7 +644,7 @@ def main() -> None:
         "--mode",
         choices=["smoke", "full"],
         default="smoke",
-        help="Audit mode: smoke (2 seeds) or full (100 seeds, not implemented)"
+        help="Audit mode: smoke (2 seeds) or full (100 seeds)"
     )
     parser.add_argument(
         "--out-prefix",
