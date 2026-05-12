@@ -1,6 +1,6 @@
 # Connectivity Entanglement in a Graph-Constrained Compensation Toy Model: A Confound-Isolation Study
 
-**Status:** first technical draft / not final manuscript  
+**Status:** revised technical draft / not final manuscript  
 **Date:** 2026-05-12  
 **Project:** AlphaEvolve-GCMS / GCMS-D0  
 **Frame:** confound-isolation / topology-threshold diagnostic in a computational toy model  
@@ -15,25 +15,25 @@
 
 We study GCMS-D0, a graph-constrained computational toy model in which global compensation constraints interact with local graph formation through a compensation-aware relation function. An initial Variant 2 experiment showed a higher `structure_success` rate in the compensated mode at `beta=0.003` than in the corresponding uncompensated reference. However, the positive signal was confounded by native graph topology: compensated graphs also occupied a different edge-count and connectivity regime.
 
-We report a sequence of confound-isolation tests. First, random edge removal matched edge counts but severely fragmented the compensated graphs, making it unsuitable as a final density control. Second, LCF-constrained non-bridge removal preserved connectivity but revealed that strict low-edge matching was often infeasible: attempts frequently failed because no removable non-bridge edges remained. This blocked the original density-independent mechanism claim and motivated a reframe from density independence to compensation-connectivity entanglement.
+We report a sequence of confound-isolation tests. First, random edge removal matched edge counts but severely fragmented the compensated graphs, making it unsuitable as a final density control. Second, LCF-constrained non-bridge removal preserved connectivity but revealed that strict low-edge matching was often infeasible: attempts frequently failed because no removable non-bridge edges remained. This blocked the original density-independent interpretation and motivated a reframe from density independence to compensation-connectivity entanglement, defined here as empirical co-variation without causal attribution.
 
-We then audited the native topology of compensated and uncompensated Variant 2 graphs without pruning or edge removal. The audit showed that compensated graphs at `beta=0.003` have higher `non_bridge_edge_count`, `cycle_rank`, largest-component cycle rank, and sector size. These topology descriptors are strongly associated with `structure_success`. A post-hoc split at `non_bridge_edge_count >= 19` separates high- and low-success regimes, with Wilson and bootstrap uncertainty estimates. Paired seed analysis shows systematic positive deltas in non-bridge edge count and cycle rank for compensated runs.
+We then audited the native topology of compensated and uncompensated Variant 2 graphs without pruning or edge removal. The audit showed that compensated graphs at `beta=0.003` have higher `non_bridge_edge_count`, `cycle_rank`, largest-component cycle rank, and sector size. These topology descriptors are strongly associated with `structure_success`. A post-hoc split at `non_bridge_edge_count >= 19`, selected on the full dataset, separates high- and low-success regimes, with Wilson and bootstrap uncertainty estimates. Paired seed analysis shows systematic positive deltas in non-bridge edge count and cycle rank for compensated runs.
 
-We conclude that the original density-independent mechanism claim is not supported. Instead, the results support a conservative compensation-connectivity entanglement interpretation in this toy model: compensated dynamics appears empirically coupled to the production of native topological capacity associated with local structural success. No causal, universal, or physical claim is made.
+We conclude that the original density-independent interpretation is not supported. Instead, the results support a conservative empirical-coupling interpretation in this toy model: compensation-aware dynamics co-occur with higher native topological capacity associated with local structural success. No causal, universal, or physical claim is made.
 
 ---
 
 ## 1. Introduction
 
-Positive results in computational toy models are often difficult to interpret because an apparent mechanism may be entangled with uncontrolled structural confounders. In graph-based simulations, this problem is especially acute: a local success criterion may appear to improve under one model mode while the graph itself has also changed in edge count, connectedness, cyclic redundancy, or bridge structure.
+Positive results in computational toy models are often difficult to interpret because an apparent signal may be entangled with uncontrolled structural confounders. In graph-based simulations, this problem is especially acute: a local success criterion may appear to improve under one model mode while the graph itself has also changed in edge count, connectedness, cyclic redundancy, or bridge structure.
 
-GCMS-D0 was developed as a graph-constrained toy model for studying whether global compensation constraints can produce locally distinguishable graph structures under compensation-aware relation functions. The model is not presented here as a physical theory. It is used as a controlled computational setting for studying how global constraints, graph topology, and local success criteria interact.
+GCMS-D0 was developed as a graph-constrained toy model for studying whether global compensation constraints co-vary with locally distinguishable graph structures under compensation-aware relation functions. The model is not presented here as a physical theory. It is used as a controlled computational setting for studying how global constraints, graph topology, and local success criteria interact.
 
 The starting point for this report was an initially positive result in Variant 2 at `beta=0.003`. In that experiment, the compensated mode had a higher `structure_success` rate than the uncompensated reference. However, compensated graphs also differed in native topology. This made a density-independent interpretation unsafe.
 
-The central contribution of this note is not confirmation of the original mechanism hypothesis. Instead, the contribution is a documented confound-isolation sequence showing why the original density-independent claim had to be weakened and what scientifically useful structure remained. The result is a reframe: compensated Variant 2 at `beta=0.003` is best treated as a connectivity-threshold-dependent study regime in which success is empirically coupled to native topological capacity.
+The central contribution of this note is not confirmation of the original hypothesis. Instead, the contribution is a documented confound-isolation sequence showing why the original density-independent interpretation had to be weakened and what scientifically useful structure remained. The result is a reframe: compensated Variant 2 at `beta=0.003` is best treated as a connectivity-threshold-dependent study regime in which success is empirically associated with native topological capacity.
 
-This note makes four contributions. First, it documents why the initial compensated advantage cannot be interpreted as density-independent. Second, it shows that random edge removal and LCF-constrained pruning fail for different methodological reasons: fragmentation and structural infeasibility. Third, it reframes the result as compensation-connectivity entanglement and audits native topology without graph modification. Fourth, it reports paired-seed and uncertainty analyses showing that `non_bridge_edge_count` and `cycle_rank` provide a topology-threshold description of the observed success pattern.
+This note makes four contributions. First, it documents why the initial compensated advantage cannot be interpreted as density-independent. Second, it shows that random edge removal and LCF-constrained pruning fail for different methodological reasons: fragmentation and structural infeasibility. Third, it reframes the result as compensation-connectivity entanglement, explicitly defined as empirical co-variation without directed causality or necessity, and audits native topology without graph modification. Fourth, it reports paired-seed and uncertainty analyses showing that `non_bridge_edge_count` and `cycle_rank` provide a topology-threshold description of the observed success pattern.
 
 ---
 
@@ -48,6 +48,19 @@ beta = 0.003
 ```
 
 The compensated mode enforces a global compensation condition, while the uncompensated mode provides a reference without that constraint. Variant 2 uses a compensation-aware relation function to define graph structure. The relevant outcome is `structure_success`, which depends on a fixed set of criteria already used in the project, including empirical probability checks, DP validity, lifetime, and sector-size bounds.
+
+The computational setup for the native-topology audit is:
+
+```text
+N = 150
+d = 4
+steps = 200
+seeds = 100
+alpha = 0.5
+threshold = 0.75
+mutation_rate = 0.10
+baseline_count = 100
+```
 
 The audit and post-processing described here do not change these criteria. They also do not modify the generated graphs. In particular, the native-topology audit follows the invariant:
 
@@ -82,7 +95,7 @@ largest_component_cycle_rank = E_LCC - V_LCC + 1 for the largest connected compo
 
 The primary descriptor for reporting is `non_bridge_edge_count`, because it directly connects the native-topology audit to the failure mode observed in the LCF-constrained ablation: `failed_no_non_bridge_edges`. `cycle_rank` and `largest_component_cycle_rank` are used as confirmatory descriptors of cyclic redundancy.
 
-`sector_size` is reported because it is strongly associated with success, but it is outcome-adjacent rather than a clean explanatory topology variable: sector-size bounds are part of the broader success criteria. Therefore, `sector_size` is treated as descriptive/supporting context, not as the primary topology descriptor.
+`sector_size` is reported because it is strongly associated with success, but it is outcome-adjacent rather than a clean explanatory topology variable. Sector-size bounds are part of the broader success criteria, so high correlations with `structure_success` partially reflect success-definition coupling rather than independent topological prediction. Therefore, `sector_size` is treated as descriptive/supporting context, not as the primary topology descriptor.
 
 ---
 
@@ -95,7 +108,7 @@ compensated structure_success = 0.72
 uncompensated structure_success = 0.52
 ```
 
-This was an encouraging signal but not a clean mechanism result. The compensated graphs had a different native topology regime, especially in edge count and connectivity-related descriptors. Therefore, the initial result could not support the claim that Variant 2 compensation creates local structure independently of density or connectivity.
+This was an encouraging signal but not a clean result. The compensated graphs had a different native topology regime, especially in edge count and connectivity-related descriptors. Therefore, the initial result could not support the claim that Variant 2 compensation creates local structure independently of density or connectivity.
 
 The appropriate next step was confound isolation: test whether the positive signal survived attempts to control edge count and connectivity.
 
@@ -153,7 +166,7 @@ The valid rows did not exceed the uncompensated reference success rate. The domi
 
 ### 4.3 Interpretation of ablation controls
 
-The control sequence blocked the original density-independent mechanism claim.
+The control sequence blocked the original density-independent interpretation.
 
 Random removal showed:
 
@@ -167,7 +180,7 @@ LCF-constrained removal showed:
 topology can be preserved, but low-edge matching is often infeasible.
 ```
 
-Together, these results suggest that edge count, largest-component preservation, and cyclic/non-bridge capacity cannot be cleanly separated by simple pruning controls. This led to the reframe: rather than asking whether compensation creates structure independently of topology, the next question became whether compensation is empirically coupled to the production of the topology that supports success.
+Together, these results suggest that edge count, largest-component preservation, and cyclic/non-bridge capacity cannot be cleanly separated by simple pruning controls. This led to the reframe: rather than asking whether compensation creates structure independently of topology, the next question became whether compensation-aware dynamics are empirically coupled to the topology associated with success.
 
 ---
 
@@ -182,10 +195,10 @@ Variant 2 compensation creates local structure independently of density or edge 
 The conservative replacement frame is:
 
 ```text
-Variant 2 compensation is empirically coupled to native graph connectivity capacity, and that capacity is associated with structure_success.
+Variant 2 compensation-aware dynamics empirically co-vary with native graph connectivity capacity, and that capacity is associated with structure_success.
 ```
 
-This report uses the phrase `compensation-connectivity entanglement` in a limited, toy-model sense. It does not imply a causal proof. It means that, within this computational setup, compensated dynamics and topology descriptors such as non-bridge edge count and cycle rank vary together in a way that is associated with local structural success.
+This report uses the phrase `compensation-connectivity entanglement` in a limited, operational toy-model sense. It means an observed co-variation where compensation-aware dynamics consistently co-occur with higher native topological capacity, without implying directed causality, necessity, or universality. In the rest of the draft, the phrase should be read as shorthand for empirical coupling.
 
 This reframe is not a rescue of the original claim. It is a weakening of the claim to match the evidence.
 
@@ -230,7 +243,7 @@ Native topology summary:
 | compensated | 0.72 | 44.96 | 33.52 | 16.09 | 15.93 | 0.269 | 29.86 |
 | uncompensated | 0.53 | 25.35 | 17.82 | 8.16 | 8.15 | 0.335 | 18.17 |
 
-The compensated mode has higher success and a higher native topology-capacity regime. In particular, it has more non-bridge edges and higher cycle rank. This is exactly the capacity that LCF-constrained pruning depleted or failed to remove without destroying connectivity.
+The compensated mode has higher success and a higher native topology-capacity regime. In particular, it has more non-bridge edges and higher cycle rank. This is the same capacity that LCF-constrained pruning depleted or failed to remove without destroying connectivity.
 
 ---
 
@@ -253,11 +266,11 @@ The parent audit found the following Pearson correlations with `structure_succes
 | density | -0.458 |
 | bridge_fraction | -0.242 |
 
-These correlations are descriptive. They do not imply causality. They also involve collinear graph descriptors: edge count, cycle rank, non-bridge edge count, and sector size are not independent explanatory variables.
+These correlations are descriptive. They do not imply causality. The topology descriptors are also highly collinear: edge count, non-bridge edge count, cycle rank, largest-component cycle rank, and sector size co-vary in this regime. Descriptive correlations are presented because multivariate attribution would not cleanly isolate unique effects in this exploratory frame and is deferred to future work.
 
-However, the pattern is consistent with the reframe: success is associated with structural redundancy and cycle capacity rather than scalar density alone. The negative correlation with density warns that density alone is not a reliable proxy for the relevant topological capacity.
+The pattern is consistent with the reframe: success is associated with structural redundancy and cycle capacity rather than scalar density alone. The negative correlation with density warns that density alone is not a reliable proxy for the relevant topological capacity.
 
-The negative density correlation should not be read as evidence that sparse graphs are generally better. Density is normalized by sector size / node count and is therefore entangled with the size of the selected graph. In this audit, `edge_count` and especially `non_bridge_edge_count` are more interpretable descriptors of absolute topological capacity than scalar density alone.
+The negative density correlation should not be read as evidence that sparse graphs are generally better. Density is a normalized ratio and may be affected by component-size or sector-size normalization. In this audit, structural success is better described by absolute edge/cycle capacity, especially `non_bridge_edge_count`, than by relative sparsity. Density is therefore a misleading standalone predictor in this regime.
 
 ### 7.2 Post-hoc non-bridge threshold
 
@@ -272,11 +285,11 @@ Rows above the threshold had substantially higher success than rows below it:
 ```text
 non_bridge_edge_count >= 19:
     103/105 success = 0.981
-    Wilson CI = [0.933, 0.995]
+    Wilson score interval = [0.933, 0.995]
 
 non_bridge_edge_count < 19:
     22/95 success = 0.232
-    Wilson CI = [0.158, 0.326]
+    Wilson score interval = [0.158, 0.326]
 ```
 
 The rate difference was:
@@ -286,13 +299,13 @@ difference = 0.749
 bootstrap 95% CI = [0.656, 0.834]
 ```
 
-This is a large descriptive contrast. However, the threshold was selected on the same data and must therefore be reported as post-hoc exploratory. It is not validated as a universal or mechanistic cutoff.
+This is a large descriptive contrast. However, the threshold was selected on the full dataset and is prone to selection bias. It must be reported as a post-hoc exploratory boundary observed in this dataset, not as a mechanistic, universal, or validated cutoff. Generalization requires validation on held-out seeds or independent `beta`, `N`, and threshold settings.
 
 ### 7.3 Wilson confidence intervals for model-mode rates
 
-The model-mode success rates with Wilson confidence intervals are:
+The model-mode success rates with Wilson score intervals are:
 
-| group | success_count | n | rate | Wilson CI |
+| group | success_count | n | rate | Wilson score interval |
 |---|---:|---:|---:|---:|
 | compensated | 72 | 100 | 0.720 | [0.625, 0.799] |
 | uncompensated | 53 | 100 | 0.530 | [0.433, 0.625] |
@@ -304,7 +317,7 @@ Failure-rate intervals also favored the compensated mode:
 | failed_p_gnp | 0.170 [0.109, 0.255] | 0.430 [0.337, 0.528] |
 | failed_p_dp | 0.160 [0.101, 0.244] | 0.320 [0.237, 0.417] |
 
-These intervals strengthen the descriptive reportability of the result but do not convert the observational audit into a causal mechanism proof.
+Unless otherwise stated, rate intervals in this draft use 95% Wilson score intervals. The threshold-difference interval uses a bootstrap 95% confidence interval with row-level resampling. These intervals strengthen descriptive reportability but do not convert the observational audit into a causal result.
 
 ### 7.4 Paired seed analysis
 
@@ -338,7 +351,7 @@ The topology deltas are more systematic than the binary success delta, which is 
 
 The evidence supports a topology-threshold interpretation of Variant 2 at `beta=0.003`. The compensated mode has higher `structure_success`, but it also produces a different native topology. The relevant topology is not adequately summarized by density alone. The primary descriptor is `non_bridge_edge_count`, supported by `cycle_rank` and largest-component cycle rank.
 
-This explains the earlier LCF-constrained ablation result. When compensated graphs were forced toward low edge counts while preserving LCF, the process frequently exhausted removable non-bridge edges. This is not a minor implementation failure; it is directly related to the topology capacity that the native audit associates with success.
+This explains the earlier LCF-constrained ablation result. When compensated graphs were forced toward low edge counts while preserving LCF, the process frequently exhausted removable non-bridge edges. This is directly related to the topology capacity that the native audit associates with success.
 
 Therefore, the original positive signal should not be interpreted as density-independent. The more accurate statement is that compensated Variant 2 at `beta=0.003` occupies a higher topological-capacity regime, and that regime is associated with local structural success.
 
@@ -373,13 +386,13 @@ This report has several important limitations.
 
 First, GCMS-D0 is a computational toy model. No physical claim is made.
 
-Second, the topology audit is observational. It shows association between compensated mode, topology descriptors, and `structure_success`. It does not prove that compensation causally creates structure.
+Second, the topology audit is observational. It shows association between compensated mode, topology descriptors, and `structure_success`. It does not prove that compensation causally creates structure, and no interventional perturbation was performed.
 
-Third, the threshold `non_bridge_edge_count >= 19` is post-hoc exploratory. Although the observed contrast is large and has Wilson/bootstrap uncertainty estimates, the threshold was identified on the same data and requires validation on independent seeds or parameter settings before mechanistic interpretation.
+Third, the threshold `non_bridge_edge_count >= 19` is post-hoc exploratory. Although the observed contrast is large and has Wilson/bootstrap uncertainty estimates, the threshold was selected on the same full dataset and is prone to selection bias. It requires validation on held-out seeds or independent parameter settings before generalization.
 
-Fourth, the graph descriptors are collinear. Edge count, non-bridge edge count, cycle rank, and sector size are related. A logistic or collinearity-aware analysis may be useful for a fuller manuscript, but it is not required for this first confound-isolation report.
+Fourth, the graph descriptors are collinear. Edge count, non-bridge edge count, cycle rank, largest-component cycle rank, and sector size co-vary. This prevents causal attribution among descriptors in the present descriptive analysis. Logistic or collinearity-aware modeling may be useful for a fuller manuscript, but it is deferred because it would not by itself provide causal identification in this exploratory frame.
 
-Fifth, the generality of the result across `N`, `beta`, and threshold hyperparameters has not been established. Suggested future checks include threshold variation in `[0.70, 0.80]`, beta values such as `0.004` or `0.005`, and `N=100/200` cross-checks.
+Fifth, the result is currently constrained to a single `beta` value and a fixed computational setting. The generality of the result across `N`, `beta`, threshold hyperparameters, and mutation settings has not been established. Suggested future checks include threshold variation in `[0.70, 0.80]`, beta values such as `0.004` or `0.005`, `N=100/200` cross-checks, and mutation-rate sensitivity.
 
 Finally, passive residual diagnostics such as `global_error` and `sector_chi` were recorded but are not interpreted here as causal or mechanistic predictors.
 
@@ -387,14 +400,14 @@ Finally, passive residual diagnostics such as `global_error` and `sector_chi` we
 
 ## 11. Conclusion
 
-The original density-independent mechanism claim is not supported. Random edge removal introduced fragmentation, and LCF-constrained edge removal showed that strict low-edge matching is often structurally infeasible. These controls blocked the clean mechanism interpretation and motivated a reframe toward compensation-connectivity entanglement.
+The original density-independent interpretation is not supported. Random edge removal introduced fragmentation, and LCF-constrained edge removal showed that strict low-edge matching is often structurally infeasible. These controls blocked the clean density-independent interpretation and motivated a reframe toward compensation-connectivity entanglement, defined here as empirical coupling without causal attribution.
 
-The native-topology audit supports this reframe. Compensated Variant 2 at `beta=0.003` produces higher non-bridge edge count, cycle rank, largest-component cycle rank, and sector size than the uncompensated reference. These descriptors are strongly associated with `structure_success`. Paired seed analysis and confidence intervals strengthen the descriptive reportability of the result.
+The native-topology audit supports this reframe. Compensated Variant 2 at `beta=0.003` is associated with higher non-bridge edge count, cycle rank, largest-component cycle rank, and sector size than the uncompensated reference. These descriptors are strongly associated with `structure_success`. Paired seed analysis and confidence intervals strengthen the descriptive reportability of the result.
 
 The conservative conclusion is:
 
 ```text
-In this toy model, compensated Variant 2 at beta=0.003 is best interpreted as a connectivity-threshold-dependent study regime. The apparent compensated advantage is empirically coupled to native topological capacity, especially non_bridge_edge_count and cycle_rank. This supports a confound-isolation / topology-threshold framing, not a density-independent mechanism proof.
+In this toy model, compensated Variant 2 at beta=0.003 is best interpreted as a connectivity-threshold-dependent study regime. The apparent compensated advantage is empirically coupled to native topological capacity, especially non_bridge_edge_count and cycle_rank. This supports a confound-isolation / topology-threshold framing, not a density-independent proof.
 ```
 
 No causal, universal, or physical claim is made.
@@ -418,6 +431,7 @@ docs/experiments/connectivity_entanglement_audit_variant2_ci_pairing_extension.m
 docs/results/v010_connectivity_entanglement_audit_variant2_ci_pairing.md
 docs/papers/connectivity_entanglement_confound_isolation_outline.md
 docs/reviews/connectivity_entanglement_confound_isolation_draft_review_pass.md
+docs/reviews/connectivity_entanglement_confound_isolation_draft_qwen_review.md
 ```
 
 ---
@@ -430,6 +444,7 @@ Allowed wording:
 supports the reframe
 is associated with
 empirical coupling
+empirical co-variation
 post-hoc exploratory threshold
 topology-threshold diagnostic
 toy model
@@ -449,4 +464,6 @@ gravity
 photons
 real-world mechanism
 density-independent mechanism confirmed
+threshold defines a successful regime
+capacity enables stability
 ```
