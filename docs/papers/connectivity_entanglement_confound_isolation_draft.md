@@ -33,6 +33,8 @@ The starting point for this report was an initially positive result in Variant 2
 
 The central contribution of this note is not confirmation of the original mechanism hypothesis. Instead, the contribution is a documented confound-isolation sequence showing why the original density-independent claim had to be weakened and what scientifically useful structure remained. The result is a reframe: compensated Variant 2 at `beta=0.003` is best treated as a connectivity-threshold-dependent study regime in which success is empirically coupled to native topological capacity.
 
+This note makes four contributions. First, it documents why the initial compensated advantage cannot be interpreted as density-independent. Second, it shows that random edge removal and LCF-constrained pruning fail for different methodological reasons: fragmentation and structural infeasibility. Third, it reframes the result as compensation-connectivity entanglement and audits native topology without graph modification. Fourth, it reports paired-seed and uncertainty analyses showing that `non_bridge_edge_count` and `cycle_rank` provide a topology-threshold description of the observed success pattern.
+
 ---
 
 ## 2. Model and outcome overview
@@ -53,6 +55,8 @@ The audit and post-processing described here do not change these criteria. They 
 Measure native topology first. Do not prune. Do not rescue.
 ```
 
+### 2.1 Topology definitions
+
 The main topology descriptors used in this report are:
 
 ```text
@@ -66,7 +70,19 @@ largest_component_fraction
 sector_size
 ```
 
-The primary descriptor for reporting is `non_bridge_edge_count`, because it directly connects the native-topology audit to the failure mode observed in the LCF-constrained ablation: `failed_no_non_bridge_edges`.
+Definitions:
+
+```text
+bridge_count = number of graph bridges
+bridge_fraction = bridge_count / edge_count, when edge_count > 0
+non_bridge_edge_count = edge_count - bridge_count
+cycle_rank = E - V + C, where E is edge count, V is node count, and C is number of connected components
+largest_component_cycle_rank = E_LCC - V_LCC + 1 for the largest connected component
+```
+
+The primary descriptor for reporting is `non_bridge_edge_count`, because it directly connects the native-topology audit to the failure mode observed in the LCF-constrained ablation: `failed_no_non_bridge_edges`. `cycle_rank` and `largest_component_cycle_rank` are used as confirmatory descriptors of cyclic redundancy.
+
+`sector_size` is reported because it is strongly associated with success, but it is outcome-adjacent rather than a clean explanatory topology variable: sector-size bounds are part of the broader success criteria. Therefore, `sector_size` is treated as descriptive/supporting context, not as the primary topology descriptor.
 
 ---
 
@@ -173,6 +189,8 @@ This report uses the phrase `compensation-connectivity entanglement` in a limite
 
 This reframe is not a rescue of the original claim. It is a weakening of the claim to match the evidence.
 
+The reframe and audit interpretation were subjected to independent methodological review within the project workflow. That review recommended treating `non_bridge_edge_count` as the primary descriptor, reporting the `>=19` threshold as post-hoc exploratory, and adding paired-seed and uncertainty analyses before drafting. This review is part of the project's internal methodological pressure system; it is not presented as journal peer review.
+
 ---
 
 ## 6. Native-topology audit
@@ -238,6 +256,8 @@ The parent audit found the following Pearson correlations with `structure_succes
 These correlations are descriptive. They do not imply causality. They also involve collinear graph descriptors: edge count, cycle rank, non-bridge edge count, and sector size are not independent explanatory variables.
 
 However, the pattern is consistent with the reframe: success is associated with structural redundancy and cycle capacity rather than scalar density alone. The negative correlation with density warns that density alone is not a reliable proxy for the relevant topological capacity.
+
+The negative density correlation should not be read as evidence that sparse graphs are generally better. Density is normalized by sector size / node count and is therefore entangled with the size of the selected graph. In this audit, `edge_count` and especially `non_bridge_edge_count` are more interpretable descriptors of absolute topological capacity than scalar density alone.
 
 ### 7.2 Post-hoc non-bridge threshold
 
@@ -326,7 +346,28 @@ The result is scientifically useful precisely because it weakens the original cl
 
 ---
 
-## 9. Limitations
+## 9. Reproducibility and artifact trail
+
+The result is reproducibility-oriented: the project separates design checkpoints, execution notes, result notes, external-methodology reviews, and draft writing. The main scripts and outputs used for this draft are:
+
+| Purpose | Artifact |
+|---|---|
+| native topology audit tool | `tools/audit_connectivity_entanglement_variant2.py` |
+| raw audit output | `outputs/raw_v010_connectivity_entanglement_audit_variant2.csv` |
+| summary audit output | `outputs/summary_v010_connectivity_entanglement_audit_variant2.csv` |
+| paired seed audit output | `outputs/per_seed_v010_connectivity_entanglement_audit_variant2.csv` |
+| threshold output | `outputs/thresholds_v010_connectivity_entanglement_audit_variant2.csv` |
+| correlation output | `outputs/correlations_v010_connectivity_entanglement_audit_variant2.csv` |
+| CI/pairing postprocess tool | `tools/postprocess_connectivity_audit_ci_pairing.py` |
+| paired summary output | `outputs/paired_seed_summary_v010_connectivity_entanglement_audit_variant2_ci_pairing.csv` |
+| Wilson CI output | `outputs/wilson_cis_v010_connectivity_entanglement_audit_variant2_ci_pairing.csv` |
+| bootstrap CI output | `outputs/bootstrap_ci_non_bridge_ge19_v010_connectivity_entanglement_audit_variant2_ci_pairing.csv` |
+
+Generated outputs are local artifacts and are not committed by default unless explicitly authorized.
+
+---
+
+## 10. Limitations
 
 This report has several important limitations.
 
@@ -344,7 +385,7 @@ Finally, passive residual diagnostics such as `global_error` and `sector_chi` we
 
 ---
 
-## 10. Conclusion
+## 11. Conclusion
 
 The original density-independent mechanism claim is not supported. Random edge removal introduced fragmentation, and LCF-constrained edge removal showed that strict low-edge matching is often structurally infeasible. These controls blocked the clean mechanism interpretation and motivated a reframe toward compensation-connectivity entanglement.
 
@@ -376,6 +417,7 @@ docs/reviews/v010_connectivity_entanglement_audit_variant2_qwen_review.md
 docs/experiments/connectivity_entanglement_audit_variant2_ci_pairing_extension.md
 docs/results/v010_connectivity_entanglement_audit_variant2_ci_pairing.md
 docs/papers/connectivity_entanglement_confound_isolation_outline.md
+docs/reviews/connectivity_entanglement_confound_isolation_draft_review_pass.md
 ```
 
 ---
