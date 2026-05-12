@@ -51,6 +51,12 @@ We conclude that the original density-independent interpretation is not supporte
 
 ---
 
+## Plain-language summary
+
+This note reports a negative but useful result from a graph-based toy model. An initial compensated mode appeared to perform better than an uncompensated reference, but further checks showed that the effect was not independent of graph topology. Attempts to match edge counts either fragmented the graph or became structurally infeasible. A later audit showed that compensated graphs naturally had more non-bridge edges and higher cycle rank, and those topology features were associated with success. The result therefore shifts the interpretation from a clean compensation mechanism to an empirical coupling between compensation-aware dynamics and native connectivity capacity. The study makes no physical or causal claim.
+
+---
+
 ## 1. Introduction
 
 Positive results in computational toy models are often difficult to interpret because an apparent signal may be entangled with uncontrolled structural confounders. In graph-based simulations, this problem is especially acute: a local success criterion may appear to improve under one model mode while the graph itself has also changed in edge count, connectedness, cyclic redundancy, or bridge structure.
@@ -62,6 +68,17 @@ The starting point for this report was an initially positive result in Variant 2
 The central contribution of this note is not confirmation of the original hypothesis. Instead, the contribution is a documented confound-isolation sequence showing why the original density-independent interpretation had to be weakened and what scientifically useful structure remained. The result is a reframe: compensated Variant 2 at `beta=0.003` is best treated as a connectivity-threshold-dependent study regime in which success is empirically associated with native topological capacity.
 
 This note makes four contributions. First, it documents why the initial compensated advantage cannot be interpreted as density-independent. Second, it shows that random edge removal and LCF-constrained pruning fail for different methodological reasons: fragmentation and structural infeasibility. Third, it reframes the result as compensation-connectivity entanglement, explicitly defined as empirical co-variation without directed causality or necessity, and audits native topology without graph modification. Fourth, it reports paired-seed and uncertainty analyses showing that `non_bridge_edge_count` and `cycle_rank` provide a topology-threshold description of the observed success pattern.
+
+### Table 1. Confound-isolation sequence
+
+| stage | experiment / artifact | purpose | main result | claim impact |
+|---|---|---|---|---|
+| Initial signal | `confirm_connectivity_variant2` | Compare compensated vs uncompensated Variant 2 | 0.72 vs 0.52 success | Positive signal, but topology-confounded |
+| Random density control | `random_edge_removal_preliminary` | Exact edge-count matching | target 25 success 0.345, LCF 0.307 | Invalid final control due to fragmentation |
+| LCF-constrained control | `lcf_constrained_ablation_variant2` | Preserve largest component while reducing edges | `failed_no_non_bridge_edges` dominates | Density-independent interpretation blocked |
+| Reframe | `connectivity_entanglement_reframe` | Replace density-independent interpretation | compensation-connectivity empirical coupling | Claim weakened and made conservative |
+| Native topology audit | `connectivity_entanglement_audit_variant2` | Measure native topology without pruning | compensated has higher non-bridge/cycle capacity | Reframe supported descriptively |
+| CI/pairing | `connectivity_entanglement_audit_variant2_ci_pairing` | Uncertainty and paired checks | threshold contrast and paired deltas | Reportability strengthened |
 
 ---
 
@@ -264,7 +281,7 @@ compensated rows = 100
 uncompensated rows = 100
 ```
 
-### Table 1. Native topology summary
+### Table 2. Native topology summary
 
 | mode | structure_success | edge_count | non_bridge_edge_count | cycle_rank | largest_component_cycle_rank | bridge_fraction | sector_size |
 |---|---:|---:|---:|---:|---:|---:|---:|
@@ -281,7 +298,7 @@ The compensated mode has higher success and a higher native topology-capacity re
 
 The parent audit found the following Pearson correlations with `structure_success`:
 
-### Table 2. Descriptive correlations with `structure_success`
+### Table 3. Descriptive correlations with `structure_success`
 
 | feature | correlation with structure_success |
 |---|---:|
@@ -312,19 +329,18 @@ non_bridge_edge_count >= 19
 
 Rows above the threshold had substantially higher success than rows below it.
 
-### Table 3. Post-hoc threshold rates with Wilson score intervals
+### Table 4. Post-hoc threshold rates with Wilson score intervals
 
 | group | success_count | n | rate | Wilson score interval |
 |---|---:|---:|---:|---:|
 | `non_bridge_edge_count >= 19` | 103 | 105 | 0.981 | [0.933, 0.995] |
 | `non_bridge_edge_count < 19` | 22 | 95 | 0.232 | [0.158, 0.326] |
 
-The rate difference was:
+### Table 5. Bootstrap threshold contrast
 
-```text
-difference = 0.749
-bootstrap 95% CI = [0.656, 0.834]
-```
+| threshold | above_rate | below_rate | difference | bootstrap 95% CI | note |
+|---|---:|---:|---:|---:|---|
+| `non_bridge_edge_count >= 19` | 0.981 | 0.232 | 0.749 | [0.656, 0.834] | post-hoc exploratory; selected on full dataset; prone to selection bias; not universal or mechanistic |
 
 This is a large descriptive contrast. However, the threshold was selected on the full dataset and is prone to selection bias. It must be reported as a post-hoc exploratory boundary observed in this dataset, not as a mechanistic, universal, or validated cutoff. Generalization requires validation on held-out seeds or independent `beta`, `N`, and threshold settings.
 
@@ -332,7 +348,7 @@ This is a large descriptive contrast. However, the threshold was selected on the
 
 The model-mode success rates with Wilson score intervals are:
 
-### Table 4. Model-mode success rates
+### Table 6. Model-mode success rates
 
 | group | success_count | n | rate | Wilson score interval |
 |---|---:|---:|---:|---:|
@@ -341,7 +357,7 @@ The model-mode success rates with Wilson score intervals are:
 
 Failure-rate intervals also favored the compensated mode:
 
-### Table 5. Failure rates by mode
+### Table 7. Failure rates by mode
 
 | failure | compensated | uncompensated |
 |---|---:|---:|
@@ -354,7 +370,7 @@ Unless otherwise stated, rate intervals in this note use 95% Wilson score interv
 
 Because compensated and uncompensated rows were generated for the same seeds, paired analysis is more informative than treating all rows as independent.
 
-### Table 6. Paired seed deltas
+### Table 8. Paired seed deltas
 
 | metric | mean_delta | median_delta | positive | negative | zero | positive_fraction |
 |---|---:|---:|---:|---:|---:|---:|
@@ -390,11 +406,32 @@ The result is scientifically useful precisely because it weakens the original cl
 
 ---
 
-## 9. Reproducibility and artifact trail
+## 9. Optional figures for future formatting
+
+No figures are required for the v0.1 technical note. The following figure placeholders are descriptive-only options for a later formatted version:
+
+```text
+Figure 1. Confound-isolation workflow diagram.
+Figure 2. Distribution of non_bridge_edge_count by mode.
+Figure 3. structure_success versus non_bridge_edge_count with post-hoc threshold marker.
+Figure 4. Paired seed deltas for non_bridge_edge_count and cycle_rank.
+```
+
+Required figure-caption caveats if figures are later added:
+
+```text
+Descriptive only; no causal interpretation.
+Threshold marker is post-hoc exploratory and selected on the same dataset.
+Paired deltas show seed-matched co-variation, not causal direction.
+```
+
+---
+
+## 10. Reproducibility and artifact trail
 
 The result is reproducibility-oriented: the project separates design checkpoints, execution notes, result notes, external-methodology reviews, and draft writing. The main scripts and outputs used for this note are:
 
-### Table 7. Reproducibility artifacts
+### Table 9. Reproducibility artifacts
 
 | Purpose | Artifact |
 |---|---|
@@ -413,7 +450,7 @@ Generated outputs are local artifacts and are not committed by default unless ex
 
 ---
 
-## 10. Limitations
+## 11. Limitations
 
 This report has several important limitations.
 
@@ -431,7 +468,7 @@ Finally, passive residual diagnostics such as `global_error` and `sector_chi` we
 
 ---
 
-## 11. Conclusion
+## 12. Conclusion
 
 The original density-independent interpretation is not supported. Random edge removal introduced fragmentation, and LCF-constrained edge removal showed that strict low-edge matching is often structurally infeasible. These controls blocked the clean density-independent interpretation and motivated a reframe toward compensation-connectivity entanglement, defined here as empirical coupling without causal attribution.
 
@@ -467,6 +504,8 @@ docs/reviews/connectivity_entanglement_confound_isolation_draft_review_pass.md
 docs/reviews/connectivity_entanglement_confound_isolation_draft_qwen_review.md
 docs/reviews/connectivity_entanglement_confound_isolation_draft_revision_note.md
 docs/papers/connectivity_entanglement_confound_isolation_v0_1_plan.md
+docs/reviews/connectivity_entanglement_confound_isolation_v0_1_checklist.md
+docs/papers/connectivity_entanglement_confound_isolation_v0_1_editorial_patch.md
 ```
 
 ---
