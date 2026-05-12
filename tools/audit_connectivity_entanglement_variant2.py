@@ -451,17 +451,41 @@ def make_correlations(df: pd.DataFrame) -> pd.DataFrame:
         x = df[feature].to_numpy(dtype=float)
         for target in targets:
             y = df[target].to_numpy(dtype=float)
-            if len(x) < 2 or len(y) < 2:
-                continue
-            try:
-                corr = np.corrcoef(x, y)[0, 1]
-            except Exception:
-                corr = 0.0
+            valid_mask = np.isfinite(x) & np.isfinite(y)
+            valid_count = int(np.count_nonzero(valid_mask))
+            correlation_available = False
+            skip_reason = ""
+            correlation_value = np.nan
+
+            if valid_count < 2:
+                skip_reason = "not_enough_rows"
+            else:
+                x_valid = x[valid_mask]
+                y_valid = y[valid_mask]
+                unique_x = np.unique(x_valid)
+                unique_y = np.unique(y_valid)
+                feature_constant = len(unique_x) <= 1
+                target_constant = len(unique_y) <= 1
+
+                if feature_constant and target_constant:
+                    skip_reason = "constant_feature_or_target"
+                elif feature_constant:
+                    skip_reason = "constant_feature"
+                elif target_constant:
+                    skip_reason = "constant_target"
+                else:
+                    with np.errstate(invalid='ignore', divide='ignore'):
+                        corr = np.corrcoef(x_valid, y_valid)[0, 1]
+                    correlation_value = float(corr)
+                    correlation_available = True
+
             rows.append({
                 "feature": feature,
                 "method": "pearson",
                 "target": target,
-                "correlation_with_target": float(corr),
+                "correlation_with_target": correlation_value,
+                "correlation_available": correlation_available,
+                "skip_reason": skip_reason,
                 "n_rows": int(len(df)),
             })
     return pd.DataFrame(rows)
