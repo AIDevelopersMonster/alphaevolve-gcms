@@ -1,17 +1,25 @@
 # Supporting Documents
 
 **Status:** final article support index  
-**Purpose:** identify the small set of documents that support `FINAL_ARTICLE.md`.
+**Purpose:** identify the small set of documents that support the final GCMS-D0 article.
 
 This repository is intentionally narrow. It is not a scientific archive, engineering package, or active research codebase.
 
-## Primary article
+## Primary articles
+
+Russian version:
+
+```text
+FINAL_ARTICLE_RU.md
+```
+
+English version:
 
 ```text
 FINAL_ARTICLE.md
 ```
 
-The final article controls the public interpretation of this repository.
+The Russian article is the main current narrative for the D0 → D1 transition. The English article remains the compact international version.
 
 ## Core support documents
 
@@ -19,6 +27,7 @@ These files are current and should be read first:
 
 ```text
 README.md
+FINAL_ARTICLE_RU.md
 FINAL_ARTICLE.md
 SUPPORTING_DOCUMENTS.md
 docs/GCMS-D0_PUBLIC_CHECKPOINT.md
