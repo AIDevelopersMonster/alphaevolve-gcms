@@ -1,9 +1,9 @@
 # Supporting Documents
 
-**Status:** article support index  
-**Purpose:** identify the small set of documents used as evidence for the final article.
+**Status:** final article support index  
+**Purpose:** identify the small set of documents that support `FINAL_ARTICLE.md`.
 
-This archive is intentionally narrow. It is not a complete scientific or engineering repository.
+This repository is intentionally narrow. It is not a scientific archive, engineering package, or active research codebase.
 
 ## Primary article
 
@@ -11,30 +11,46 @@ This archive is intentionally narrow. It is not a complete scientific or enginee
 FINAL_ARTICLE.md
 ```
 
+The final article controls the public interpretation of this repository.
+
 ## Core support documents
+
+These files are current and should be read first:
 
 ```text
 README.md
 FINAL_ARTICLE.md
 SUPPORTING_DOCUMENTS.md
 docs/GCMS-D0_PUBLIC_CHECKPOINT.md
+```
+
+## Historical process evidence
+
+These files are retained only as historical evidence of the D0 working process:
+
+```text
 docs/AGENT_INTERACTION_PROTOCOL.md
 docs/SYMBIOTIC_COHERENCE_PROTOCOL.md
 docs/GCMS-D0_MUTUAL_RESEARCH_PROTOCOL.md
+```
+
+They are not current operating instructions. If they say `working protocol`, read that as historical wording from the original D0 process.
+
+## Superseded files removed
+
+The following older preparation documents were removed from the final support set because they described an earlier publication plan that treated the repository as a broader scientific / technical archive:
+
+```text
 docs/PUBLIC_ARCHIVE_INDEX.md
 docs/ARCHIVE_PUBLICATION_PLAN.md
 ```
 
-## Optional technical context
-
-Some older documents may remain only as historical support. They should not be read as active research claims or engineering documentation.
-
-The final article controls the public interpretation of this archive.
+The repository is now narrower: it supports the final article about practical human-AI workflow, not a scientific-engineering release.
 
 ## Interpretation rule
 
 ```text
-If an older document appears to present GCMS-D0 as an active scientific/engineering project, read it historically. The final status is: completed case archive for a human-AI workflow article.
+If any remaining older document appears to present GCMS-D0 as an active scientific or engineering project, read it historically. The final status is: completed case archive for a human-AI workflow article.
 ```
 
 ## Closure rule
